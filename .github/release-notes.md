@@ -1,3 +1,21 @@
+## Fixed in 2.0.1
+
+**The app would not start on some Intel graphics.** It crashed before the
+window appeared, with nothing shown and nothing written down — the kind of
+failure where a user can only report that "nothing happened". The cause was
+Intel's Vulkan driver faulting during startup on HD Graphics 630; the
+interface now draws through Direct3D 12 instead, which does not load that
+driver at all.
+
+If a graphics backend ever does fail, the app now remembers and tries the next
+one on the following launch, so a machine with a broken driver fails at most
+once. Setting `WGPU_BACKEND` to `dx12`, `vulkan` or `opengl` forces a
+particular one. A crash or a failed start also now writes
+`%LOCALAPPDATA%\vcg-deinterlacer\last-error.txt` and says so, instead of
+vanishing.
+
+---
+
 **A new version of VCG Deinterlacer, rebuilt from scratch in Rust.**
 
 Version 1.8 was a single large Python program. This is a native Windows
@@ -7,7 +25,7 @@ version before it.
 
 ## Download
 
-Download **`VCG-Deinterlacer-2.0.0-Windows-x64.zip`** from the Assets list
+Download **`VCG-Deinterlacer-{{VERSION}}-Windows-x64.zip`** from the Assets list
 below, unzip it anywhere, and run **VCG Deinterlacer.exe**.
 
 > Not the two **Source code** downloads. GitHub adds those to every release

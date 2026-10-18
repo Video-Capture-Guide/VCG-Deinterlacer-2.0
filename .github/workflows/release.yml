@@ -101,8 +101,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The notes name the zip to download, which carries the version. Fill
+          # it in from the tag rather than leaving a number in the file to go
+          # stale: a release telling people to download the previous version's
+          # file is worse than one that says nothing.
+          sed "s/{{VERSION}}/${GITHUB_REF_NAME#v}/g" \
+            .github/release-notes.md > release-notes-final.md
           gh release create "$GITHUB_REF_NAME" \
             "$zip#The app — unzip and run VCG Deinterlacer.exe" \
             "checksum.txt#SHA-256 of the zip above" \
             --title "VCG Deinterlacer $GITHUB_REF_NAME" \
-            --notes-file .github/release-notes.md
+            --notes-file release-notes-final.md

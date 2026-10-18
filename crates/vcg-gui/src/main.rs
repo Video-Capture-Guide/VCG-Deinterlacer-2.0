@@ -123,6 +123,75 @@ fn chrono_free_timestamp() -> String {
     }
 }
 
+/// The graphics backends to ask wgpu for, in the order they are tried.
+///
+/// Direct3D 12 first on Windows, and not because it is faster: Intel's Vulkan
+/// driver `igvk64.dll` crashes outright — an access violation before the first
+/// frame — on an HD Graphics 630 machine running the driver Windows shipped
+/// for it. wgpu's own preference order reaches Vulkan first, so a default
+/// build dies on that hardware with no window and no message. D3D12 never
+/// loads the Vulkan driver, and every GPU that can run Windows 11 supports it.
+///
+/// `WGPU_BACKEND` overrides the choice, for a machine where the opposite is
+/// true.
+const BACKENDS: &[(&str, eframe::wgpu::Backends)] = &[
+    ("Direct3D 12", eframe::wgpu::Backends::DX12),
+    ("Vulkan", eframe::wgpu::Backends::VULKAN),
+    ("OpenGL", eframe::wgpu::Backends::GL),
+];
+
+/// Records which backend is mid-attempt, so a crash is not repeated forever.
+fn renderer_marker_path() -> Option<PathBuf> {
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    Some(PathBuf::from(base).join("vcg-deinterlacer").join("renderer-attempt"))
+}
+
+/// Which backend to try this time.
+///
+/// A graphics driver that faults takes the process down with it: there is no
+/// error to catch and no panic to hook, so the app cannot fall back *during*
+/// a crash. It can only remember. The index of the backend being attempted is
+/// written before the window is created and cleared once a frame has actually
+/// been drawn, so finding one still on disk at startup means that backend
+/// killed us last time and the next one is due. The effect is that a machine
+/// with a broken driver fails once and works afterwards.
+fn choose_backend() -> (usize, &'static str, eframe::wgpu::Backends) {
+    let failed = renderer_marker_path()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| s.trim().parse::<usize>().ok());
+
+    // Past the end of the ladder, start again: every backend has failed, so
+    // there is nothing cleverer to do than retry the best one.
+    let index = match failed {
+        Some(i) => (i + 1) % BACKENDS.len(),
+        None => 0,
+    };
+    let (label, backends) = BACKENDS[index];
+    (index, label, backends)
+}
+
+/// Note that this backend is being tried.
+fn mark_renderer_attempt(index: usize) {
+    if let Some(path) = renderer_marker_path() {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, index.to_string());
+    }
+}
+
+/// Called once a frame has been drawn: this backend works.
+pub fn mark_renderer_working() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static DONE: AtomicBool = AtomicBool::new(false);
+    if DONE.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    if let Some(path) = renderer_marker_path() {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 fn main() -> eframe::Result {
     // `panic = "abort"` skips unwinding but still runs the hook first, so this
     // is the last chance to say anything at all about a panic in a build with
@@ -153,8 +222,18 @@ fn main() -> eframe::Result {
         }));
     }
 
+    let (backend_index, backend_label, backends) = choose_backend();
+    mark_renderer_attempt(backend_index);
+
+    let mut setup = eframe::egui_wgpu::WgpuSetupCreateNew::without_display_handle();
+    setup.instance_descriptor.backends = backends.with_env();
+
     let options = eframe::NativeOptions {
         viewport,
+        wgpu_options: eframe::WgpuConfiguration {
+            wgpu_setup: setup.into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -171,19 +250,17 @@ fn main() -> eframe::Result {
         }),
     );
 
-    // The failure this is really for is "no window appeared and nothing was
-    // said". eframe draws through OpenGL 3.3, which a machine with only the
-    // Microsoft Basic Display Adapter driver, a very old integrated GPU, or a
-    // Remote Desktop session cannot provide — and the error for that arrives
-    // here, on a process with nowhere to print it.
+    // This arm catches only a *clean* failure to create the window. A graphics
+    // driver that faults instead kills the process outright, which is what the
+    // backend ladder above is for — nothing here runs in that case.
     if let Err(e) = &started {
         report_fatal(
             "The window could not be created.",
             &format!(
-                "{e}\n\nThis is usually the graphics driver: the interface is drawn \
-                 with OpenGL 3.3, which is not available over Remote Desktop or on a \
-                 PC running Windows' basic display driver. Installing the graphics \
-                 driver for your display adapter normally fixes it."
+                "{e}\n\nThe interface was drawn with {backend_label}. This is almost \
+                 always the graphics driver: updating the driver for your display \
+                 adapter normally fixes it. Setting WGPU_BACKEND to dx12, vulkan or \
+                 opengl forces a particular one."
             ),
         );
     }
@@ -1368,6 +1445,10 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        // Reaching here at all means the graphics backend produced a frame, so
+        // the attempt marker can go. Cheap after the first call.
+        mark_renderer_working();
+
         let ctx = ui.ctx().clone();
         // Cheap, and the only way the window follows the system theme while
         // it is open rather than only at startup.
