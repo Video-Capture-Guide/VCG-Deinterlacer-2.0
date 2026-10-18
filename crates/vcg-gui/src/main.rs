@@ -17,6 +17,7 @@ mod flags;
 mod nav;
 mod pages;
 mod settings;
+mod setup;
 mod trim;
 mod watermark;
 mod theme;
@@ -280,6 +281,11 @@ pub struct Pending {
     /// A native dialog to open once the frame is finished. Only the shell
     /// has the window handle a dialog needs as its owner — see `dialog`.
     dialog: Option<Dialog>,
+    /// A page asked for the payload download. Queued because the pages that
+    /// offer it are handed `&App`.
+    install_deps: bool,
+    /// Close the About panel after this frame.
+    close_about: bool,
 }
 
 pub struct App {
@@ -427,6 +433,11 @@ pub struct App {
     pub deps_ready: bool,
     pub deps_summary: String,
     pub tool_lines: Vec<String>,
+    /// Where the payload goes, kept so the installer can be started
+    /// again after a failure without re-deriving it.
+    deps_dir: PathBuf,
+    /// The first-run download, while it is running.
+    pub deps_install: Option<setup::Install>,
 
     /// Whether the About panel is open. Not a `Step`: it is not part of the
     /// walk from a file to an export, and putting it in the sidebar's
@@ -455,17 +466,7 @@ impl App {
         // Which engine is in use, and where it was found. This machine has
         // three VapourSynth installations and the Python app picks among them
         // silently, which makes a bug report unanswerable.
-        let mut tool_lines = Vec::new();
-        for (label, tool) in [
-            ("ffmpeg", &tools.ffmpeg),
-            ("ffprobe", &tools.ffprobe),
-            ("VapourSynth", &tools.vspipe),
-        ] {
-            match tool {
-                Some(t) => tool_lines.push(format!("{label}: {} ({})", short(&t.path), t.origin)),
-                None => tool_lines.push(format!("{label}: not found")),
-            }
-        }
+        let tool_lines = tool_lines(&tools);
 
         let flag = cc
             .storage
@@ -500,7 +501,7 @@ impl App {
                 .load_texture("logo", image, egui::TextureOptions::LINEAR)
         });
 
-        Self {
+        let mut app = Self {
             front_graphic: None,
             theme_choice,
             text_size,
@@ -565,8 +566,58 @@ impl App {
             pending: RefCell::new(Pending::default()),
             deps_ready: state.is_ready() && tools.can_probe(),
             deps_summary: state.describe(&DEPS_MANIFEST),
+            // Started below, once the struct exists, so the one place that
+            // decides whether a payload is needed is `needs_payload`.
+            deps_install: None,
+            deps_dir: deps_dir.clone(),
             tool_lines,
             tools,
+        };
+
+        // The payload is what makes the app able to do anything, so fetching
+        // it is not a decision to put in front of somebody on first launch.
+        if !app.deps_ready {
+            app.start_payload_install();
+        }
+        app
+    }
+
+    /// Download and install the support payload, off the UI thread.
+    ///
+    /// Re-entrant by design: the Welcome page offers a Try again button after
+    /// a failure, and a second call while one is running is ignored rather
+    /// than starting a competing download into the same staging directory.
+    pub fn start_payload_install(&mut self) {
+        if matches!(
+            self.deps_install.as_ref().map(|i| &i.status),
+            Some(setup::Status::Working { .. })
+        ) {
+            return;
+        }
+        self.deps_install = Some(setup::Install::start(
+            self.deps_dir.clone(),
+            &DEPS_MANIFEST,
+        ));
+    }
+
+    /// Collect the installer's progress, and pick the tools up when it lands.
+    ///
+    /// Re-running discovery is the point: `ToolPaths` was resolved at startup,
+    /// when there was no ffmpeg to find, so without this the window would sit
+    /// there saying the payload is missing until it was restarted.
+    fn poll_payload_install(&mut self) {
+        let Some(install) = &mut self.deps_install else {
+            return;
+        };
+        if !install.poll() {
+            return;
+        }
+        if install.status == setup::Status::Done {
+            self.tools = ToolPaths::discover(None);
+            let state = deps_state(&self.deps_dir, &DEPS_MANIFEST);
+            self.deps_ready = state.is_ready() && self.tools.can_probe();
+            self.deps_summary = state.describe(&DEPS_MANIFEST);
+            self.tool_lines = tool_lines(&self.tools);
         }
     }
 
@@ -595,6 +646,16 @@ impl App {
 
     pub fn queue_goto(&self, step: Step) {
         self.pending.borrow_mut().goto = Some(step);
+    }
+
+    /// Ask the shell to start the payload download after this frame.
+    pub fn queue_payload_install(&self) {
+        self.pending.borrow_mut().install_deps = true;
+    }
+
+    /// Ask the shell to close the About panel after this frame.
+    pub fn queue_close_about(&self) {
+        self.pending.borrow_mut().close_about = true;
     }
 
     /// Ask the shell to open a native dialog after this frame.
@@ -1424,6 +1485,27 @@ impl App {
 }
 
 /// Shorten a path for display, keeping the last two components.
+/// Which engine is in use, and where it was found.
+///
+/// A machine can have several VapourSynth installations and the tool picks
+/// among them; a report of "it crashed" is unanswerable without knowing which
+/// one ran. Rebuilt after the payload installs, because discovery runs at
+/// startup when there is nothing yet to find.
+fn tool_lines(tools: &ToolPaths) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (label, tool) in [
+        ("ffmpeg", &tools.ffmpeg),
+        ("ffprobe", &tools.ffprobe),
+        ("VapourSynth", &tools.vspipe),
+    ] {
+        match tool {
+            Some(t) => lines.push(format!("{label}: {} ({})", short(&t.path), t.origin)),
+            None => lines.push(format!("{label}: not found")),
+        }
+    }
+    lines
+}
+
 fn short(path: &std::path::Path) -> String {
     let parts: Vec<_> = path.components().collect();
     if parts.len() <= 2 {
@@ -1448,6 +1530,7 @@ impl eframe::App for App {
         // Reaching here at all means the graphics backend produced a frame, so
         // the attempt marker can go. Cheap after the first call.
         mark_renderer_working();
+        self.poll_payload_install();
 
         let ctx = ui.ctx().clone();
         // Cheap, and the only way the window follows the system theme while
@@ -1710,6 +1793,12 @@ impl eframe::App for App {
         let pending = std::mem::take(&mut *self.pending.borrow_mut());
         for (key, open) in pending.open {
             self.set_open(&key, open);
+        }
+        if pending.close_about {
+            self.show_about = false;
+        }
+        if pending.install_deps {
+            self.start_payload_install();
         }
 
         // Mode first: it decides which probes a following analysis runs.

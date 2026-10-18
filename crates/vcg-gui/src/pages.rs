@@ -114,6 +114,86 @@ pub fn welcome(ui: &mut egui::Ui, app: &mut App) -> PageAction {
         // the user doing anything and so has to be said where they are.
         if !app.deps_ready {
             ui.add_space(14.0);
+            first_run_setup(ui, app);
+        }
+    });
+
+    action
+}
+
+/// The first-run payload download, on the page the user is already looking at.
+///
+/// Not a modal dialog. The Python app put this in one that appeared only when
+/// something was already broken, which meant the usual first run showed a
+/// window that silently could not work. Here the Start button is already
+/// disabled until the payload is ready, so this card explains the thing the
+/// user can already see.
+fn first_run_setup(ui: &mut egui::Ui, app: &mut App) {
+    use crate::setup::Status;
+
+    let status = app
+        .deps_install
+        .as_ref()
+        .map(|i| i.status.clone())
+        .unwrap_or(Status::Idle);
+
+    match status {
+        Status::Working { note, fraction } => {
+            ui.label(
+                RichText::new("Getting the components this needs")
+                    .size(theme::FONT_SMALL)
+                    .family(theme::semibold())
+                    .color(theme::text()),
+            );
+            ui.add_space(6.0);
+            // An unknown fraction animates rather than sitting at zero, which
+            // would read as a download that has stalled.
+            let shown = fraction.unwrap_or_else(|| {
+                let t = ui.input(|i| i.time) as f32;
+                (t * 0.5).fract()
+            });
+            app.progress_bar(ui, shown, 360.0, 10.0);
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(note)
+                    .size(theme::FONT_SMALL)
+                    .color(theme::muted()),
+            );
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new(
+                    "FFmpeg and VapourSynth, about 158 MiB. This happens once.",
+                )
+                .size(theme::FONT_SMALL)
+                .color(theme::faint()),
+            );
+            // Without this the window only redraws on input, so the bar would
+            // freeze while the download ran.
+            ui.ctx().request_repaint();
+        }
+        Status::Failed(message) => {
+            ui.label(
+                RichText::new("The components could not be downloaded")
+                    .size(theme::FONT_SMALL)
+                    .family(theme::semibold())
+                    .color(theme::fix()),
+            );
+            ui.add_space(4.0);
+            theme::paragraph(
+                ui,
+                RichText::new(message)
+                    .size(theme::FONT_SMALL)
+                    .color(theme::muted()),
+            );
+            ui.add_space(8.0);
+            if theme::primary(ui, "Try again", true).clicked() {
+                app.start_payload_install();
+            }
+        }
+        // Done but still not ready means the payload installed and the tools
+        // are still not usable — a different problem, and the honest thing to
+        // show is what the check actually says.
+        Status::Idle | Status::Done => {
             ui.label(
                 RichText::new(&app.deps_summary)
                     .size(theme::FONT_SMALL)
@@ -125,10 +205,12 @@ pub fn welcome(ui: &mut egui::Ui, app: &mut App) -> PageAction {
                     .size(theme::FONT_SMALL)
                     .color(theme::faint()),
             );
+            ui.add_space(8.0);
+            if theme::primary(ui, "Download the components", true).clicked() {
+                app.start_payload_install();
+            }
         }
-    });
-
-    action
+    }
 }
 
 // ── Screen 1: Choose video ──────────────────────────────────────────────────

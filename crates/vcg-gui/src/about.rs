@@ -323,8 +323,17 @@ fn components(ui: &mut egui::Ui, app: &App) {
         ui.add_space(10.0);
         paragraph_small(
             ui,
-            "The components download on first run. If that did not happen,              close the app and run vcg-deps install beside the executable.",
+            "These download by themselves the first time the app opens \
+             without them, on the Welcome page. If that did not finish, go \
+             back to Welcome and start it again — nothing here needs to be \
+             installed by hand.",
         );
+        ui.add_space(8.0);
+        if theme::primary(ui, "Download them now", true).clicked() {
+            app.queue_payload_install();
+            app.queue_close_about();
+            app.queue_goto(crate::nav::Step::Welcome);
+        }
     }
 }
 

@@ -1,3 +1,14 @@
+## Fixed in 2.0.2
+
+**The components now actually download by themselves on first run.** They
+never did. The app could only *check* whether FFmpeg and VapourSynth were
+present and say "not ready" if they weren't — the download lived solely in a
+command-line tool that wasn't even in the release zip. A new user got a
+working window with no way to make it work, while the About page told them it
+downloads on first run. It does now: the Welcome page fetches the payload
+automatically with a progress bar, picks the tools up when it finishes without
+needing a restart, and offers Try again if it fails.
+
 ## Fixed in 2.0.1
 
 **The app would not start on some Intel graphics.** It crashed before the
