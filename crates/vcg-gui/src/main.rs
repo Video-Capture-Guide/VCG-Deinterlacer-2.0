@@ -65,7 +65,79 @@ const FRONT_GRAPHIC: &[u8] = include_bytes!("../assets/front-graphic.png");
 const ICON_RGBA: &[u8] = include_bytes!("../assets/icon-256.rgba");
 const ICON_SIDE: u32 = 256;
 
+/// Where a crash or a failed start is written down.
+///
+/// Beside the stored settings rather than beside the exe: the app may live in
+/// Program Files or in a read-only folder, and a log nobody can write is worse
+/// than no log because it fails silently in its turn.
+fn crash_log_path() -> Option<PathBuf> {
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    Some(PathBuf::from(base).join("vcg-deinterlacer").join("last-error.txt"))
+}
+
+/// Write `text` where it can be found again, and return where that was.
+fn write_crash_log(text: &str) -> Option<PathBuf> {
+    let path = crash_log_path()?;
+    std::fs::create_dir_all(path.parent()?).ok()?;
+    std::fs::write(&path, text).ok()?;
+    Some(path)
+}
+
+/// Tell the user, in the only way a windowless process can.
+///
+/// A release build is `windows_subsystem = "windows"`, so it has no console:
+/// anything printed to stderr goes nowhere, and returning an error from `main`
+/// exits with a code nobody sees. On a machine that cannot start the app at
+/// all — no OpenGL 3.3, a missing runtime — that produced a process that
+/// launched and vanished with no explanation, which is what this exists to
+/// prevent. rfd is already a dependency for the file dialogs.
+fn report_fatal(what: &str, detail: &str) {
+    let logged = write_crash_log(&format!(
+        "VCG Deinterlacer {}\n{}\n\n{}\n{}\n",
+        vcg_core::VERSION_STRING,
+        chrono_free_timestamp(),
+        what,
+        detail
+    ));
+
+    let mut body = format!("{what}\n\n{detail}");
+    if let Some(path) = logged {
+        body.push_str(&format!("\n\nWritten to:\n{}", path.display()));
+    }
+
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("VCG Deinterlacer could not start")
+        .set_description(body)
+        .show();
+}
+
+/// A timestamp without pulling in a date library for one line.
+///
+/// Seconds since the epoch is not friendly, but it orders correctly and is
+/// unambiguous, which is all a crash log needs.
+fn chrono_free_timestamp() -> String {
+    match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => format!("unix time {}", d.as_secs()),
+        Err(_) => "unknown time".to_string(),
+    }
+}
+
 fn main() -> eframe::Result {
+    // `panic = "abort"` skips unwinding but still runs the hook first, so this
+    // is the last chance to say anything at all about a panic in a build with
+    // no console.
+    std::panic::set_hook(Box::new(|info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        report_fatal(
+            "The app stopped unexpectedly.",
+            &format!("{info}\n\nat {location}"),
+        );
+    }));
+
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1180.0, 820.0])
         .with_min_inner_size([900.0, 600.0])
@@ -86,7 +158,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    eframe::run_native(
+    let started = eframe::run_native(
         "vcg-deinterlacer",
         options,
         Box::new(|cc| {
@@ -97,7 +169,26 @@ fn main() -> eframe::Result {
             theme::apply(&cc.egui_ctx);
             Ok(Box::new(App::new(cc)))
         }),
-    )
+    );
+
+    // The failure this is really for is "no window appeared and nothing was
+    // said". eframe draws through OpenGL 3.3, which a machine with only the
+    // Microsoft Basic Display Adapter driver, a very old integrated GPU, or a
+    // Remote Desktop session cannot provide — and the error for that arrives
+    // here, on a process with nowhere to print it.
+    if let Err(e) = &started {
+        report_fatal(
+            "The window could not be created.",
+            &format!(
+                "{e}\n\nThis is usually the graphics driver: the interface is drawn \
+                 with OpenGL 3.3, which is not available over Remote Desktop or on a \
+                 PC running Windows' basic display driver. Installing the graphics \
+                 driver for your display adapter normally fixes it."
+            ),
+        );
+    }
+
+    started
 }
 
 /// Changes a page requests while it is being drawn.
