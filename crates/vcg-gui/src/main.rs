@@ -1163,6 +1163,57 @@ impl App {
     /// A failure here is reported and never fatal: the video is the thing
     /// that took an hour, and losing the run over an unwritable sidecar
     /// would be absurd.
+    /// Write a log for an export that failed.
+    ///
+    /// Always, whatever the Save-a-log checkbox says. A successful export is
+    /// self-documenting — the file is there to look at — but a failure leaves
+    /// nothing at all, and the one thing the user needs is the part the error
+    /// box had to truncate. Reported on a second machine: the log option was
+    /// ticked, the export failed, and no log appeared, because the writer
+    /// returned early whenever there was no `Outcome` to describe.
+    ///
+    /// Beside the file the export was going to write, so it sits where the
+    /// user was already looking. If that folder cannot be written — a
+    /// read-only drive, a path that no longer exists — it falls back to the
+    /// crash log beside the settings, and either way the caller is told which.
+    fn write_failure_log(&self, output: &std::path::Path, error: &str, took: f64) -> Option<PathBuf> {
+        let source_name = self
+            .file
+            .as_ref()
+            .and_then(|f| f.file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let text = vcg_core::provenance::log_text(vcg_core::provenance::LogEntry {
+            config: &self.config,
+            version: VERSION,
+            source_name: &source_name,
+            output_name: &output.file_name().unwrap_or_default().to_string_lossy(),
+            started: &now_stamp(),
+            seconds: took,
+            findings: self.report.as_ref().map(findings_text).as_deref(),
+            tool_output: error,
+            mode: Some(self.mode),
+        });
+
+        let stem = output
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "export".to_string());
+        if let Some(dir) = output.parent() {
+            let beside = dir.join(format!("{stem}.failed.log.txt"));
+            if std::fs::write(&beside, &text).is_ok() {
+                return Some(beside);
+            }
+        }
+
+        // Last resort: the same place a crash goes, which is always writable.
+        let fallback = crash_log_path()?;
+        std::fs::create_dir_all(fallback.parent()?).ok()?;
+        std::fs::write(&fallback, &text).ok()?;
+        Some(fallback)
+    }
+
     fn write_companions(
         &self,
         outcome: Option<&vcg_tools::encode::Outcome>,
@@ -1610,11 +1661,21 @@ impl eframe::App for App {
             && let Some(result) = job.poll()
         {
             let took = job.started.elapsed().as_secs_f64();
+            // Taken before anything borrows self: the job is borrowed from
+            // self, so reading it after that is a borrow conflict.
+            let intended_output = job.output.clone();
             // Written now, while the config and the findings are still the
             // ones the export used. Doing it on the button press instead
             // would let a setting changed afterwards be recorded as though it
             // had been applied, which is worse than having no record at all.
             let mut companions = self.write_companions(result.as_ref().ok(), took);
+            // A failure writes its own log unconditionally. `output` comes
+            // from the job rather than the result, because a failed export
+            // has no result to ask.
+            let mut failure_log = None;
+            if let Err(why) = &result {
+                failure_log = self.write_failure_log(&intended_output, why, took);
+            }
             // The clip is written by the encoder, not here, so it is added
             // to the list rather than produced by it — but it is listed the
             // same way, because to the reader it is one more file that
@@ -1624,6 +1685,13 @@ impl eframe::App for App {
             {
                 companions.push(clip.clone());
             }
+            let result = match (result, failure_log) {
+                (Err(why), Some(path)) => Err(format!(
+                    "{why}\n\nThe full output from both programs is in:\n{}",
+                    path.display()
+                )),
+                (other, _) => other,
+            };
             self.export_done = Some(result.map(|o| {
                 let bytes = std::fs::metadata(&o.output).map(|m| m.len()).unwrap_or(0);
                 export::ExportSummary {

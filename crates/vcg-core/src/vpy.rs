@@ -515,23 +515,25 @@ fn source_loading(s: &mut Script, config: &Config) {
     s.push("# to catch lazy failures (e.g. lsmas succeeds on open but fails mid-output).");
     s.push("# AVCHD/HDV files moved out of their BDMV directory have corrupt duration");
     s.push("# metadata; ffms2 scans the file physically and always gets the right frame count.");
-    s.push("def _try_src(fn):");
+    s.push("_vcg_src_errors = []");
+    s.push("def _try_src(name, fn):");
     s.push("    try:");
     s.push("        c = fn()");
     s.push("        c.get_frame(0)");
     s.push("        return c");
-    s.push("    except Exception:");
+    s.push("    except Exception as e:");
+    s.push("        _vcg_src_errors.append(\"  %s: %s\" % (name, e))");
     s.push("        return None");
     s.gap();
 
     let lsmas = format!(
-        "_try_src(lambda: core.lsmas.LWLibavSource(r\"{path}\", stream_index=0, cache=0, fpsnum={fpsnum}, fpsden={fpsden}))"
+        "_try_src(\"lsmas\", lambda: core.lsmas.LWLibavSource(r\"{path}\", stream_index=0, cache=0, fpsnum={fpsnum}, fpsden={fpsden}))"
     );
     let ffms2 = format!(
-        "_try_src(lambda: core.std.AssumeFPS(core.ffms2.Source(r\"{path}\"), fpsnum={fpsnum}, fpsden={fpsden}))"
+        "_try_src(\"ffms2\", lambda: core.std.AssumeFPS(core.ffms2.Source(r\"{path}\"), fpsnum={fpsnum}, fpsden={fpsden}))"
     );
     let bs = format!(
-        "_try_src(lambda: core.std.AssumeFPS(core.bs.VideoSource(r\"{path}\"), fpsnum={fpsnum}, fpsden={fpsden}))"
+        "_try_src(\"bestsource\", lambda: core.std.AssumeFPS(core.bs.VideoSource(r\"{path}\"), fpsnum={fpsnum}, fpsden={fpsden}))"
     );
 
     // SD puts lsmas first for better performance on normal files.
@@ -547,8 +549,11 @@ fn source_loading(s: &mut Script, config: &Config) {
     s.push(format!("    or {}", order[2]));
     s.push(")");
     s.push("if clip is None:");
+    // Every reason, not just the fact of failure. A missing plugin reads as
+    // an AttributeError naming the namespace, which is the difference between
+    // "this payload is broken" and "this file is not readable".
     s.push(format!(
-        "    raise RuntimeError(\"All source loaders failed for: {path}\")"
+        "    raise RuntimeError(\"Could not open: {path}\\n\" + \"\\n\".join(_vcg_src_errors))"
     ));
     s.gap();
 }

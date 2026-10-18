@@ -20,7 +20,7 @@ pub use config::Config;
 /// Here rather than in the GUI because the encoder stamps it into every file
 /// it writes, and a version number that lives in the interface layer cannot
 /// be reached from the layer that actually does the writing.
-pub const VERSION: &str = "2.0.2";
+pub const VERSION: &str = "2.0.3";
 
 /// The date this version was built, ISO first.
 ///
@@ -36,7 +36,7 @@ pub const BUILD_DATE: &str = "2026-10-18";
 /// Spelled out rather than built from the two above, because `concat!` cannot
 /// take a `const`. `version_string_agrees_with_its_parts` fails the build if
 /// the three ever drift apart.
-pub const VERSION_STRING: &str = "2.0.2 (2026-10-18)";
+pub const VERSION_STRING: &str = "2.0.3 (2026-10-18)";
 
 /// Where releases are published, for the update check and the About page.
 pub const REPO_URL: &str = "https://github.com/Video-Capture-Guide/vcg-deinterlacer-rust";

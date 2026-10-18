@@ -1,3 +1,21 @@
+## Fixed in 2.0.3
+
+**A failed export now says what went wrong.** Three separate things were
+hiding the reason:
+
+- The error box showed FFmpeg's complaint and not VapourSynth's. Both were
+  captured, joined into one string with VapourSynth first, and then trimmed to
+  the *last* 1200 characters — so the half that explained the failure was
+  always the half discarded. Each is now kept and labelled separately.
+- "All source loaders failed" didn't say why any of them failed. Each
+  loader's own error is now reported, which distinguishes an unreadable file
+  from a missing component.
+- **A log was never written when an export failed**, even with the log option
+  ticked, because the writer gave up whenever there was no finished file to
+  describe. A failure now always writes one — `<name>.failed.log.txt` beside
+  where the video would have gone — whatever that checkbox says, since a
+  failure is the case where there is otherwise no record at all.
+
 ## Fixed in 2.0.2
 
 **The components now actually download by themselves on first run.** They

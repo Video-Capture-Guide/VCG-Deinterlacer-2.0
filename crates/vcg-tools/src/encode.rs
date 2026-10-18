@@ -486,7 +486,7 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
         let _ = std::fs::remove_file(&audio_path);
         return Err(format!(
             "no output file was produced.\n{}",
-            tail(&stderr, 1200)
+            stderr.report()
         ));
     }
 
@@ -495,7 +495,7 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
     let duration = probe_duration(tools, output).ok_or_else(|| {
         format!(
             "the output could not be read back — it is probably truncated.\n{}",
-            tail(&stderr, 1200)
+            stderr.report()
         )
     })?;
 
@@ -508,7 +508,7 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
             return Err(format!(
                 "the output is {duration:.1}s but should be {total_seconds:.1}s — \
                  the render did not finish.\n{}",
-                tail(&stderr, 1200)
+                stderr.report()
             ));
         }
     }
@@ -527,7 +527,11 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
         match crate::comparison::render(tools, &config, source, output, source_fps) {
             Ok(path) => Some(path),
             Err(why) => {
-                stderr.push_str(&format!("\ncomparison clip: {why}\n"));
+                // Onto the consumer's half: this is an ffmpeg render of its
+                // own, with no VapourSynth in it.
+                stderr
+                    .consumer
+                    .push_str(&format!("\ncomparison clip: {why}\n"));
                 None
             }
         }
@@ -541,7 +545,7 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
         // Audio only made it in if it was muxed during the pass.
         had_audio: had_audio && audio_in_pass,
         comparison: comparison_file,
-        tool_output: tail(&stderr, 20_000),
+        tool_output: tail(&stderr.all(), 20_000),
     })
 }
 
@@ -564,17 +568,69 @@ fn probe_duration(tools: &ToolPaths, file: &Path) -> Option<f64> {
     out.stdout.trim().parse().ok()
 }
 
-/// Spawn the pair and stream FFmpeg's progress until it finishes.
+/// What each half of the pipe said.
 ///
-/// Returns the producer's stderr, which is where VapourSynth reports script
-/// errors — the ones worth showing when an export fails.
+/// Kept apart rather than concatenated. They used to be joined into one
+/// string, producer first, and every error message then trimmed it to its
+/// last 1200 characters — so ffmpeg's "Invalid data found when processing
+/// input" survived and the VapourSynth error that *caused* it was the half
+/// discarded. The user was shown the symptom and never the reason.
+#[derive(Debug, Default, Clone)]
+pub struct PipeStderr {
+    /// vspipe's stderr. VapourSynth reports script errors here, so this is
+    /// the half that explains a failed export.
+    pub producer: String,
+    /// ffmpeg's stderr.
+    pub consumer: String,
+}
+
+impl PipeStderr {
+    /// Both halves, labelled and separately trimmed, for an error message.
+    ///
+    /// The producer is named first and given the larger share, because when
+    /// the pipe carries nothing ffmpeg's complaint is a consequence rather
+    /// than a reason. Each is trimmed from its own end: a VapourSynth failure
+    /// finishes with the `vapoursynth.Error` line, which is what a traceback
+    /// is read backwards for.
+    fn report(&self) -> String {
+        let mut out = String::new();
+        let producer = tail(&self.producer, 1600);
+        if !producer.is_empty() {
+            out.push_str("VapourSynth said:\n");
+            out.push_str(&producer);
+        }
+        let consumer = tail(&self.consumer, 800);
+        if !consumer.is_empty() {
+            if !out.is_empty() {
+                out.push_str("\n\n");
+            }
+            out.push_str("FFmpeg said:\n");
+            out.push_str(&consumer);
+        }
+        if out.is_empty() {
+            out.push_str("Neither program reported anything.");
+        }
+        out
+    }
+
+    /// Everything both said, for the log, where there is room.
+    fn all(&self) -> String {
+        format!(
+            "--- vspipe ---\n{}\n\n--- ffmpeg ---\n{}",
+            self.producer.trim(),
+            self.consumer.trim()
+        )
+    }
+}
+
+/// Spawn the pair and stream FFmpeg's progress until it finishes.
 fn pipe_with_progress(
     mut producer: Command,
     mut consumer: Command,
     total_seconds: f64,
     report: &mut dyn FnMut(Phase),
     cancel: &AtomicBool,
-) -> Result<String, String> {
+) -> Result<PipeStderr, String> {
     producer
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -667,7 +723,10 @@ fn pipe_with_progress(
         return Err(STOPPED.to_string());
     }
 
-    Ok(format!("{producer_stderr}\n{consumer_stderr}"))
+    Ok(PipeStderr {
+        producer: producer_stderr,
+        consumer: consumer_stderr,
+    })
 }
 
 /// The last `n` characters, for an error message.
