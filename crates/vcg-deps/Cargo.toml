@@ -1,0 +1,19 @@
+[package]
+name = "vcg-deps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Blocking HTTP with rustls. An async stack would pull several hundred crates
+# for one download that happens at most once per release.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Building test archives needs zip's writer, and the tests compute the digest
+# of what they built. Neither is needed at runtime.
+[dev-dependencies]
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }

@@ -1,0 +1,66 @@
+[Parsed_astats_0 @ 000001b3f7166700] Channel: 1
+[Parsed_astats_0 @ 000001b3f7166700] DC offset: -0.002768
+[Parsed_astats_0 @ 000001b3f7166700] Min level: -10461.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max level: 10374.000000
+[Parsed_astats_0 @ 000001b3f7166700] Min difference: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max difference: 1394.000000
+[Parsed_astats_0 @ 000001b3f7166700] Mean difference: 165.549976
+[Parsed_astats_0 @ 000001b3f7166700] RMS difference: 214.772429
+[Parsed_astats_0 @ 000001b3f7166700] Peak level dB: -9.917270
+[Parsed_astats_0 @ 000001b3f7166700] RMS level dB: -25.703278
+[Parsed_astats_0 @ 000001b3f7166700] RMS peak dB: -19.445680
+[Parsed_astats_0 @ 000001b3f7166700] RMS through dB: -38.449961
+[Parsed_astats_0 @ 000001b3f7166700] Crest factor: 6.156026
+[Parsed_astats_0 @ 000001b3f7166700] Flat factor: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Peak count: 2
+[Parsed_astats_0 @ 000001b3f7166700] Abs Peak count: 1
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor dB: -30.239523
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor count: 111
+[Parsed_astats_0 @ 000001b3f7166700] Entropy: 0.743699
+[Parsed_astats_0 @ 000001b3f7166700] Bit depth: 14/16/16/16
+[Parsed_astats_0 @ 000001b3f7166700] Dynamic range: 86.412064
+[Parsed_astats_0 @ 000001b3f7166700] Zero crossings: 26406
+[Parsed_astats_0 @ 000001b3f7166700] Zero crossings rate: 0.055012
+[Parsed_astats_0 @ 000001b3f7166700] Channel: 2
+[Parsed_astats_0 @ 000001b3f7166700] DC offset: 0.003266
+[Parsed_astats_0 @ 000001b3f7166700] Min level: -11031.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max level: 11386.000000
+[Parsed_astats_0 @ 000001b3f7166700] Min difference: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max difference: 1481.000000
+[Parsed_astats_0 @ 000001b3f7166700] Mean difference: 178.962473
+[Parsed_astats_0 @ 000001b3f7166700] RMS difference: 232.032981
+[Parsed_astats_0 @ 000001b3f7166700] Peak level dB: -9.181310
+[Parsed_astats_0 @ 000001b3f7166700] RMS level dB: -25.055372
+[Parsed_astats_0 @ 000001b3f7166700] RMS peak dB: -18.801323
+[Parsed_astats_0 @ 000001b3f7166700] RMS through dB: -37.685032
+[Parsed_astats_0 @ 000001b3f7166700] Crest factor: 6.218750
+[Parsed_astats_0 @ 000001b3f7166700] Flat factor: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Peak count: 2
+[Parsed_astats_0 @ 000001b3f7166700] Abs Peak count: 1
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor dB: -29.528387
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor count: 2167
+[Parsed_astats_0 @ 000001b3f7166700] Entropy: 0.752170
+[Parsed_astats_0 @ 000001b3f7166700] Bit depth: 14/16/16/16
+[Parsed_astats_0 @ 000001b3f7166700] Dynamic range: 87.148024
+[Parsed_astats_0 @ 000001b3f7166700] Zero crossings: 26184
+[Parsed_astats_0 @ 000001b3f7166700] Zero crossings rate: 0.054550
+[Parsed_astats_0 @ 000001b3f7166700] Overall
+[Parsed_astats_0 @ 000001b3f7166700] DC offset: 0.003266
+[Parsed_astats_0 @ 000001b3f7166700] Min level: -11031.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max level: 11386.000000
+[Parsed_astats_0 @ 000001b3f7166700] Min difference: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Max difference: 1481.000000
+[Parsed_astats_0 @ 000001b3f7166700] Mean difference: 172.256224
+[Parsed_astats_0 @ 000001b3f7166700] RMS difference: 223.569341
+[Parsed_astats_0 @ 000001b3f7166700] Peak level dB: -9.181310
+[Parsed_astats_0 @ 000001b3f7166700] RMS level dB: -25.367254
+[Parsed_astats_0 @ 000001b3f7166700] RMS peak dB: -18.801323
+[Parsed_astats_0 @ 000001b3f7166700] RMS through dB: -38.449961
+[Parsed_astats_0 @ 000001b3f7166700] Flat factor: 0.000000
+[Parsed_astats_0 @ 000001b3f7166700] Peak count: 2.000000
+[Parsed_astats_0 @ 000001b3f7166700] Abs Peak count: 1.000000
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor dB: -29.528387
+[Parsed_astats_0 @ 000001b3f7166700] Noise floor count: 1139.000000
+[Parsed_astats_0 @ 000001b3f7166700] Entropy: 0.747934
+[Parsed_astats_0 @ 000001b3f7166700] Bit depth: 14/16/16/16
+[Parsed_astats_0 @ 000001b3f7166700] Number of samples: 480000

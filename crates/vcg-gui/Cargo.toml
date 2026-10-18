@@ -1,0 +1,26 @@
+[package]
+name = "vcg-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+vcg-core = { path = "../vcg-core" }
+vcg-tools = { path = "../vcg-tools" }
+vcg-deps = { path = "../vcg-deps" }
+# "persistence" is not a default feature; the Simple/Detailed view
+# preference is stored through eframe's own Storage.
+eframe = { version = "0.36", features = ["persistence"] }
+# Native file dialogs. On Windows this is the OS common dialog, so there is no
+# extra runtime to ship.
+# No features: the xdg-portal/gtk3 backends are for Linux and tokio pulls an
+# entire async runtime in for one modal dialog.
+rfd = { version = "0.15", default-features = false }
+# One PNG decoder, for the progress-bar flags that are pictures rather than
+# bands of color. Default features only: the encoder and the extra filters
+# are not wanted and this is already in the tree under eframe.
+png = { version = "0.18", default-features = false }
+
+[build-dependencies]
+winresource = "0.1.34"

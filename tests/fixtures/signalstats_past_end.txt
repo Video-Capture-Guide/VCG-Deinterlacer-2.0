@@ -1,0 +1,33 @@
+ffmpeg version 8.1-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 15.2.0 (Rev11, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-zlib --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-sdl2 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-libaom --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-openal --enable-libgme --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libtheora --enable-libvo-amrwbenc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-librubberband
+  libavutil      60. 26.100 / 60. 26.100
+  libavcodec     62. 28.100 / 62. 28.100
+  libavformat    62. 12.100 / 62. 12.100
+  libavdevice    62.  3.100 / 62.  3.100
+  libavfilter    11. 14.100 / 11. 14.100
+  libswscale      9.  5.100 /  9.  5.100
+  libswresample   6.  3.100 /  6.  3.100
+[aist#0:1/pcm_s16le @ 000001ece292c580] Guessed Channel Layout: stereo
+Input #0, avi, from 'Sample Videos/1998-03-15 Birthday.avi':
+  Duration: 00:00:25.03, start: 0.000000, bitrate: 168808 kb/s
+  Stream #0:0: Video: rawvideo (YUY2 / 0x32595559), yuyv422, 720x480, 165943 kb/s, 29.97 fps, 29.97 tbr, 29.97 tbn
+  Stream #0:1: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 96000 Hz, stereo, s16, 3072 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (rawvideo (native) -> wrapped_avframe (native))
+  Stream #0:1 -> #0:1 (pcm_s16le (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+[af#0:1 @ 000001ece2955980] No filtered frames for output stream, trying to initialize anyway.
+[vf#0:0 @ 000001ece29514c0] No filtered frames for output stream, trying to initialize anyway.
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf62.12.100
+  Stream #0:0: Video: wrapped_avframe, yuv422p(progressive), 720x480, q=2-31, 200 kb/s, 29.97 fps, 29.97 tbn
+    Metadata:
+      encoder         : Lavc62.28.100 wrapped_avframe
+  Stream #0:1: Audio: pcm_s16le, 96000 Hz, stereo, s16, 3072 kb/s
+    Metadata:
+      encoder         : Lavc62.28.100 pcm_s16le
+[out#0/null @ 000001ece2931680] video:0KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+[out#0/null @ 000001ece2931680] Output file is empty, nothing was encoded(check -ss / -t / -frames parameters if used)
+frame=    0 fps=0.0 q=0.0 Lsize=N/A time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.19    

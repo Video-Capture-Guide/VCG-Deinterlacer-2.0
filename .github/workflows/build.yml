@@ -1,0 +1,79 @@
+# Build and check VCG Deinterlacer.
+#
+# Deliberately does *not* publish anything. It builds the Windows exe and
+# leaves it as a workflow artifact to download and test by hand; there is no
+# release step and no tag trigger until there is something worth releasing.
+#
+# Windows is the only target that matters. The app is a Windows GUI, the
+# payload it drives is Windows-only, and a Linux job would prove nothing
+# about the binary anyone actually runs.
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # So a build can be asked for without pushing anything.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # A backtrace costs nothing until something panics, and a panic in CI with
+  # no backtrace means pushing a commit just to find out where it was.
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Check and build
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner's stable toolchain, plus clippy. Edition 2024 needs 1.85
+      # or newer, which stable has been since early 2025.
+      - name: Install Rust
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup component add clippy
+          rustc --version
+          cargo --version
+
+      # Caches the registry and target directory keyed on Cargo.lock. The
+      # release profile here is LTO with one codegen unit, which is slow
+      # enough that an uncached build is most of the run.
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --workspace
+
+      # The project keeps clippy clean as a gate, so a warning is a failure
+      # here rather than something to scroll past.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Build release
+        run: cargo build --workspace --release
+
+      # Named with the short SHA so a downloaded exe can be traced back to the
+      # commit that produced it — the whole point of building it up here
+      # rather than on the machine that wrote the code.
+      - name: Name the artifact
+        id: name
+        shell: bash
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcg-deinterlacer-${{ steps.name.outputs.sha }}
+          # The GUI is the app; vcg-probe is the command-line prober, worth
+          # having beside it.
+          path: |
+            target/release/vcg-gui.exe
+            target/release/vcg-probe.exe
+          if-no-files-found: error
+          # Long enough to come back to after a weekend, short enough not to
+          # accumulate. GitHub's default is 90 days.
+          retention-days: 30

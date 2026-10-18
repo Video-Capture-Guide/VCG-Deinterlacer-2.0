@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["crates/vcg-core", "crates/vcg-tools", "crates/vcg-deps", "crates/vcg-gui"]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+license = "MIT"
+authors = ["VideoCaptureGuide"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Optimise release builds for a small, fast single exe.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

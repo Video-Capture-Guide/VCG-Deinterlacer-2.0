@@ -1,0 +1,11 @@
+[package]
+name = "vcg-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# No external dependencies: the hidden-console spawning, the timeout and the
+# pipe draining are all std, and the parsing lives in vcg-core.
+[dependencies]
+vcg-core = { path = "../vcg-core" }

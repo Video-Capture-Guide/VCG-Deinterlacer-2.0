@@ -1,0 +1,94 @@
+ffmpeg version 8.1-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 15.2.0 (Rev11, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-zlib --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-sdl2 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-libaom --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-openal --enable-libgme --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libtheora --enable-libvo-amrwbenc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-librubberband
+  libavutil      60. 26.100 / 60. 26.100
+  libavcodec     62. 28.100 / 62. 28.100
+  libavformat    62. 12.100 / 62. 12.100
+  libavdevice    62.  3.100 / 62.  3.100
+  libavfilter    11. 14.100 / 11. 14.100
+  libswscale      9.  5.100 /  9.  5.100
+  libswresample   6.  3.100 /  6.  3.100
+[aist#0:1/pcm_s16le @ 0000021da61bc5c0] Guessed Channel Layout: stereo
+Input #0, avi, from 'Sample Videos/1998-03-15 Birthday.avi':
+  Duration: 00:00:25.03, start: 0.000000, bitrate: 168808 kb/s
+  Stream #0:0: Video: rawvideo (YUY2 / 0x32595559), yuyv422, 720x480, 165943 kb/s, 29.97 fps, 29.97 tbr, 29.97 tbn
+  Stream #0:1: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 96000 Hz, stereo, s16, 3072 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (rawvideo (native) -> wrapped_avframe (native))
+  Stream #0:1 -> #0:1 (pcm_s16le (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+[Parsed_metadata_1 @ 0000021da62b3cc0] frame:0    pts:0       pts_time:0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YMIN=13
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YLOW=46
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YAVG=98.4856
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YHIGH=145
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YMAX=228
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UMIN=29
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.ULOW=111
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UAVG=122.25
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UHIGH=133
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UMAX=157
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VMIN=95
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VLOW=125
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VAVG=130.483
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VHIGH=138
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VMAX=196
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATMIN=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATLOW=2
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATAVG=9.26001
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATHIGH=21
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATMAX=99
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.HUEMED=113
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.HUEAVG=127.105
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YDIF=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UDIF=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VDIF=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.TOUT=0.00305845
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VREP=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.BRNG=0.000130208
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf62.12.100
+  Stream #0:0: Video: wrapped_avframe, yuv422p(progressive), 720x480, q=2-31, 200 kb/s, 29.97 fps, 29.97 tbn
+    Metadata:
+      encoder         : Lavc62.28.100 wrapped_avframe
+  Stream #0:1: Audio: pcm_s16le, 96000 Hz, stereo, s16, 3072 kb/s
+    Metadata:
+      encoder         : Lavc62.28.100 pcm_s16le
+[Parsed_metadata_1 @ 0000021da62b3cc0] frame:1    pts:1       pts_time:0.0333667
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YMIN=12
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YLOW=46
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YAVG=98.8987
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YHIGH=145
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YMAX=227
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UMIN=30
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.ULOW=111
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UAVG=122.267
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UHIGH=133
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UMAX=161
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VMIN=98
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VLOW=125
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VAVG=130.471
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VHIGH=138
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VMAX=190
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATMIN=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATLOW=2
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATAVG=9.23145
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATHIGH=21
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.SATMAX=98
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.HUEMED=113
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.HUEAVG=127.027
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YDIF=3.97428
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UDIF=0.888895
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VDIF=0.616933
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.YBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.UBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VBITDEPTH=8
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.TOUT=0.00306134
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.VREP=0
+[Parsed_metadata_1 @ 0000021da62b3cc0] lavfi.signalstats.BRNG=0.000133102
+[out#0/null @ 0000021da61c16c0] video:0KiB audio:8KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame=    1 fps=0.0 q=-0.0 Lsize=N/A time=00:00:00.02 bitrate=N/A speed=0.129x elapsed=0:00:00.20    

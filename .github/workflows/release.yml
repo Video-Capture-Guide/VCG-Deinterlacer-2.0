@@ -1,0 +1,99 @@
+# Publish a release when a version tag is pushed.
+#
+# Separate from build.yml on purpose. That workflow runs on every push and
+# publishes nothing; this one runs only on a tag and is the only thing that
+# can put a binary on the releases page. Keeping them apart means an
+# ordinary commit can never create a release by accident.
+#
+# The same checks run here as on an ordinary push, before anything is
+# published. A release is the one build nobody will re-run, so it is the
+# worst possible place to skip the gate.
+#
+# Usage:
+#   git tag v2.0.0
+#   git push origin v2.0.0
+#
+# The tag must be a version the app can compare against its own, because the
+# update checker reads it: `v2.0.0` or `2.0.0`, and not a draft or a
+# pre-release, since /releases/latest skips both.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  # Needed to create the release and upload to it. Nothing else is granted.
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+          rustup component add clippy
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The gate, same as on an ordinary push.
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # Fail before building rather than after publishing: a tag whose
+      # version does not match the one the app reports would ship a build
+      # that tells the update checker the wrong thing about itself.
+      - name: Check the tag matches the app version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          app=$(grep -m1 '^pub const VERSION' crates/vcg-core/src/lib.rs | cut -d'"' -f2)
+          echo "tag=$tag  app=$app"
+          if [ "$tag" != "$app" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION $app in crates/vcg-core/src/lib.rs"
+            exit 1
+          fi
+
+      - name: Build release
+        run: cargo build --workspace --release
+
+      # Named for the user rather than for the crate: somebody who downloads
+      # this has no reason to know the GUI crate is called vcg-gui.
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/vcg-gui.exe "dist/VCG Deinterlacer.exe"
+          cp target/release/vcg-probe.exe dist/vcg-probe.exe
+          cp README.md LICENSE dist/
+          cd dist
+          7z a "../vcg-deinterlacer-${GITHUB_REF_NAME}.zip" .
+          cd ..
+          sha256sum "vcg-deinterlacer-${GITHUB_REF_NAME}.zip" | tee checksum.txt
+
+      # gh is preinstalled on the runner, so no third-party action is trusted
+      # with the release token.
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "vcg-deinterlacer-${GITHUB_REF_NAME}.zip" \
+            checksum.txt \
+            --title "VCG Deinterlacer $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md

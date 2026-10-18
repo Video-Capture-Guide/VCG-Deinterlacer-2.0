@@ -1,0 +1,16 @@
+# Normalise source to LF in the repo, checked out native on Windows.
+*.rs    text eol=lf
+*.py    text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.lock  text eol=lf
+
+# Captured ffmpeg/ffprobe output — byte-for-byte fixtures for the parity
+# harness and the analysis tests. Line-ending conversion would alter the very
+# bytes under test (one fixture deliberately exercises an idet summary glued
+# onto the tail of a progress line), so these must never be touched.
+tests/fixtures/** -text
+
+# Icon assets are binary; never let line-ending normalisation near them.
+*.ico binary
+*.rgba binary

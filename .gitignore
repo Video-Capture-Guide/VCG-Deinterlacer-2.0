@@ -1,0 +1,32 @@
+# Rust build output
+/target/
+
+__pycache__/
+*.pyc
+
+# Test captures and their renders. These sit in the working folder because
+# that is where they are convenient to run against; none of them belong in
+# the repository — the smallest is 9 MB and one is 5.5 GB.
+*.avi
+*.mov
+*.mkv
+*.mp4
+*.y4m
+*.ppm
+
+# Generated scripts and logs from a real export, kept beside the capture
+# they came from while a problem is being chased.
+*.vpy
+*.log.txt
+
+# Issue reports, which arrive as PDFs and are read rather than tracked.
+*.pdf
+*.log-*.txt
+
+# Settings written beside an export. They describe one run against one
+# capture and belong with that capture, not in the repository.
+*.settings.json
+
+# Built binaries. CI produces these as workflow artifacts; they do not
+# belong in the repository.
+*.exe
