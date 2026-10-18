@@ -73,17 +73,26 @@ jobs:
 
       # Named for the user rather than for the crate: somebody who downloads
       # this has no reason to know the GUI crate is called vcg-gui.
+      #
+      # The ZIP name has to survive sitting directly above GitHub's two
+      # automatic "Source code" downloads, which cannot be removed from a
+      # release and contain no application. A lowercase tag-shaped name did
+      # not — it was mistaken for the source once already — so it says what
+      # it is and which platform it is for.
       - name: Package
         shell: bash
         run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="VCG-Deinterlacer-${version}-Windows-x64.zip"
+          echo "zip=$zip" >> "$GITHUB_ENV"
           mkdir -p dist
           cp target/release/vcg-gui.exe "dist/VCG Deinterlacer.exe"
           cp target/release/vcg-probe.exe dist/vcg-probe.exe
           cp README.md LICENSE dist/
           cd dist
-          7z a "../vcg-deinterlacer-${GITHUB_REF_NAME}.zip" .
+          7z a "../$zip" .
           cd ..
-          sha256sum "vcg-deinterlacer-${GITHUB_REF_NAME}.zip" | tee checksum.txt
+          sha256sum "$zip" | tee checksum.txt
 
       # gh is preinstalled on the runner, so no third-party action is trusted
       # with the release token.
@@ -93,7 +102,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "vcg-deinterlacer-${GITHUB_REF_NAME}.zip" \
-            checksum.txt \
+            "$zip#The app — unzip and run VCG Deinterlacer.exe" \
+            "checksum.txt#SHA-256 of the zip above" \
             --title "VCG Deinterlacer $GITHUB_REF_NAME" \
             --notes-file .github/release-notes.md

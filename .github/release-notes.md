@@ -7,7 +7,11 @@ version before it.
 
 ## Download
 
-Get the zip below, unzip it anywhere, and run **VCG Deinterlacer.exe**.
+Download **`VCG-Deinterlacer-2.0.0-Windows-x64.zip`** from the Assets list
+below, unzip it anywhere, and run **VCG Deinterlacer.exe**.
+
+> Not the two **Source code** downloads. GitHub adds those to every release
+> automatically and they contain the source only — no application.
 
 On first run the app downloads the support payload it needs — FFmpeg and a
 portable VapourSynth with its plugins, about 158 MiB. That download is checked
