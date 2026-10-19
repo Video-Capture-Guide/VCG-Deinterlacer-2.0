@@ -373,7 +373,7 @@ fn about_the_recording(ui: &mut egui::Ui, app: &mut App) {
     theme::card().show(ui, |ui| {
         ui.set_width(COLUMN - 34.0);
         theme::paragraph(ui, RichText::new(
-                    "All optional, and all written into the finished file so they                      travel with it. Leave any of them blank and nothing is written                      for that one.",
+                    "All optional, and all written into the finished file so they travel with it. Leave any of them blank and nothing is written for that one.",
                 )
                 .size(theme::FONT_SMALL)
                 .color(theme::muted()),);
@@ -410,7 +410,7 @@ fn about_the_recording(ui: &mut egui::Ui, app: &mut App) {
         if !date.is_empty() && !looks_like_a_date(date) {
             ui.label(
                 RichText::new(
-                    "Dates go in as 1998, 1998-12 or 1998-12-25. Anything else is                      left out of the file.",
+                    "Dates go in as 1998, 1998-12 or 1998-12-25. Anything else is left out of the file.",
                 )
                 .size(theme::FONT_TINY)
                 .color(theme::fix()),
@@ -520,25 +520,25 @@ fn destination_card(ui: &mut egui::Ui, app: &mut App) {
                 &mut app.save_log,
                 theme::glyph::DOCUMENT,
                 "A log of the run",
-                "What was measured, what was applied, and what the tools said                  while doing it. The file to send if something looks wrong.",
+                "What was measured, what was applied, and what the tools said while doing it. The file to send if something looks wrong.",
             ),
             (
                 &mut app.save_comparison,
                 theme::glyph::VIDEO,
                 "A 15-second before-and-after clip",
-                "The middle of the tape, the untouched capture on the left and                  this export on the right, both at 200% with a line down the                  join. No sound. It is made after the video and cannot affect it.",
+                "The middle of the tape, the untouched capture on the left and this export on the right, both at 200% with a line down the join. No sound. It is made after the video and cannot affect it.",
             ),
             (
                 &mut app.save_script,
                 theme::glyph::CODE,
                 "The VapourSynth script",
-                "The .vpy this export actually ran, plugin loading and all.                  Openable in Hybrid or vsedit, comparable against a script you                  wrote yourself, and runnable by hand if you want to change                  one line.",
+                "The .vpy this export actually ran, plugin loading and all. Openable in Hybrid or vsedit, comparable against a script you wrote yourself, and runnable by hand if you want to change one line.",
             ),
             (
                 &mut app.save_settings,
                 theme::glyph::SETTINGS,
                 "The settings, as a JSON file",
-                "Everything this export used, in a form the app can read back —                  so the next tape from the same deck can be done the same way.",
+                "Everything this export used, in a form the app can read back — so the next tape from the same deck can be done the same way.",
             ),
         ] {
             ui.horizontal(|ui| {

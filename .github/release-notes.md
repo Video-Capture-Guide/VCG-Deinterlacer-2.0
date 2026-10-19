@@ -1,5 +1,12 @@
 ## Fixed in 2.0.3
 
+**Gaps in the middle of sentences.** Explanatory text on the Export, Check
+video, Trim and About pages had long gaps mid-line that looked like badly
+justified type. Nothing was being justified — the spaces were real, baked into
+the text itself when an earlier edit stripped the line-continuations out of
+those sentences and left each line's indentation inside the words. Fifteen
+paragraphs across five pages were affected; all are now single-spaced.
+
 **A failed export now says what went wrong.** Three separate things were
 hiding the reason:
 

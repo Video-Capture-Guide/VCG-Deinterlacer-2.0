@@ -1386,7 +1386,7 @@ fn option_row(
         }
 
         let label = if recommended {
-            format!("{}  —  recommended", opt.label)
+            format!("{} — recommended", opt.label)
         } else {
             opt.label.to_string()
         };

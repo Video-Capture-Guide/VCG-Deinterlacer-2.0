@@ -348,9 +348,9 @@ fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
     // the payload, so telling somebody how to pip-install one of them is
     // answering a question they do not have.
     theme::paragraph(ui, RichText::new(if app.config.qtgmc_impl == QtgmcImpl::Modern {
-                "vs-jetpack's QTempGaussMC is a newer rewrite of the same                  algorithm, still actively maintained. It is configured here                  to match the havsfunc settings as closely as its own                  controls allow."
+                "vs-jetpack's QTempGaussMC is a newer rewrite of the same algorithm, still actively maintained. It is configured here to match the havsfunc settings as closely as its own controls allow."
             } else {
-                "havsfunc's QTGMC is the original implementation, and the one                  nearly every guide and forum post refers to. It is the                  default because it is what this app's settings were tuned                  against."
+                "havsfunc's QTGMC is the original implementation, and the one nearly every guide and forum post refers to. It is the default because it is what this app's settings were tuned against."
             })
             .size(theme::FONT_SMALL)
             .color(theme::muted()),);
@@ -381,13 +381,13 @@ fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
     // Anybody choosing between these deserves the numbers and the caveat in
     // the same breath, rather than a recommendation with nothing behind it.
     theme::paragraph(ui, RichText::new(
-                "In our tests on an uncompressed capture and a MiniDV capture,                  the two took about the same time. vs-jetpack produced files                  roughly 2-14% smaller at the same quality setting, which is                  the sign of a slightly softer picture rather than better                  compression — measured directly, it carries about 8% less                  vertical detail, and vertical is the direction that matters                  for a deinterlacer. That is why havsfunc is the default.",
+                "In our tests on an uncompressed capture and a MiniDV capture, the two took about the same time. vs-jetpack produced files roughly 2-14% smaller at the same quality setting, which is the sign of a slightly softer picture rather than better compression — measured directly, it carries about 8% less vertical detail, and vertical is the direction that matters for a deinterlacer. That is why havsfunc is the default.",
             )
             .size(theme::FONT_SMALL)
             .color(theme::muted()),);
     ui.add_space(6.0);
     theme::paragraph(ui, RichText::new(
-                "This is preliminary experimentation on two files and one                  machine. If you know this material, please run your own                  comparison — the export log names which tool produced each                  file, so two runs can be compared directly.",
+                "This is preliminary experimentation on two files and one machine. If you know this material, please run your own comparison — the export log names which tool produced each file, so two runs can be compared directly.",
             )
             .size(theme::FONT_SMALL)
             .color(theme::faint()),);

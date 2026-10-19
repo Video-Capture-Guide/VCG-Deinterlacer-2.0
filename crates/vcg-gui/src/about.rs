@@ -240,7 +240,7 @@ fn heading(ui: &mut egui::Ui) {
     ui.add_space(4.0);
     ui.label(
         RichText::new(format!(
-            "Version {}  ·  built {}  ·  {}",
+            "Version {} · built {} · {}",
             vcg_core::VERSION,
             vcg_core::BUILD_DATE,
             vcg_core::AUTHOR_HANDLE
@@ -347,7 +347,7 @@ fn components(ui: &mut egui::Ui, app: &App) {
 fn appearance(ui: &mut egui::Ui, app: &mut App) {
     paragraph(
         ui,
-        "The window follows your Windows light or dark setting, and changes          with it while the app is open. Override it here if you would rather          it did not.",
+        "The window follows your Windows light or dark setting, and changes with it while the app is open. Override it here if you would rather it did not.",
     );
     ui.add_space(10.0);
     ui.horizontal(|ui| {
@@ -366,7 +366,7 @@ fn appearance(ui: &mut egui::Ui, app: &mut App) {
     ui.add_space(16.0);
     paragraph(
         ui,
-        "Text size scales the whole interface, not just the words, so          nothing crowds or overlaps at the larger settings. It takes effect          as soon as you choose it.",
+        "Text size scales the whole interface, not just the words, so nothing crowds or overlaps at the larger settings. It takes effect as soon as you choose it.",
     );
     ui.add_space(10.0);
     ui.horizontal(|ui| {

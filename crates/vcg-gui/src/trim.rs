@@ -35,7 +35,7 @@ pub fn trim_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     theme::page_header(
         ui,
         "Trim",
-        "This trims video from the start and/or the end. Drag the handles at          either end of the bar, or type a start frame and an end frame into          the boxes.",
+        "This trims video from the start and/or the end. Drag the handles at either end of the bar, or type a start frame and an end frame into the boxes.",
     );
     ui.add_space(18.0);
 
