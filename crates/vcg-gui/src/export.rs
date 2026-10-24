@@ -106,9 +106,14 @@ pub fn export_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     let mut action = PageAction::default();
     ui.set_max_width(COLUMN);
 
-    if app.export_job.is_some() {
-        running(ui, app);
-        return action;
+    // The progress panel belongs to the job that is running — so it is shown
+    // only while the user is actually looking at that job's video. Once they
+    // have moved on to set up the next tape, this page is about *that* tape
+    // and must offer its controls; the running job is then watched from the
+    // queue panel instead. Without this the Export page would be occupied for
+    // the whole of a render and nothing could ever be queued behind it.
+    if app.export_job.is_some() && app.showing_running_job() {
+        return running(ui, app);
     }
     if let Some(done) = app.export_done.clone() {
         finished(ui, app, &done);
@@ -139,9 +144,29 @@ pub fn export_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     ui.add_space(22.0);
 
     let ready = app.file.is_some() && app.can_export();
+    let busy = app.export_job.is_some();
     ui.horizontal(|ui| {
-        if theme::primary(ui, "Start", ready).clicked() {
-            action.start_export = true;
+        // While something is already exporting, queueing is the only thing
+        // this button can honestly do, so it becomes the primary one rather
+        // than sitting next to a Start that would have to be refused.
+        if busy {
+            if theme::primary(ui, "Add to queue", ready).clicked() {
+                action.add_to_queue = true;
+            }
+        } else {
+            if theme::primary(ui, "Start", ready).clicked() {
+                action.start_export = true;
+            }
+            ui.add_space(10.0);
+            if ui
+                .add_enabled(ready, queue_button())
+                .on_hover_text(
+                    "Line this up and go straight on to the next video.                      Queued jobs keep the settings they were added with.",
+                )
+                .clicked()
+            {
+                action.add_to_queue = true;
+            }
         }
         ui.add_space(12.0);
         if !ready {
@@ -150,10 +175,33 @@ pub fn export_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
                     .size(theme::FONT_SMALL)
                     .color(theme::fix()),
             );
+        } else if busy {
+            ui.label(
+                RichText::new(format!(
+                    "Another video is exporting. This one will start when {} jobs ahead of it finish.",
+                    app.queue.len() + 1
+                ))
+                .size(theme::FONT_SMALL)
+                .color(theme::faint()),
+            );
         }
     });
 
     action
+}
+
+/// The secondary "Add to queue", styled like `theme::secondary` but built
+/// here so it can be drawn with `add_enabled`.
+fn queue_button() -> egui::Button<'static> {
+    egui::Button::new(
+        RichText::new("Add to queue")
+            .size(theme::FONT_BODY)
+            .color(theme::text()),
+    )
+    .fill(theme::panel2())
+    .stroke(egui::Stroke::new(1.0, theme::line()))
+    .corner_radius(theme::RADIUS_SMALL)
+    .min_size(egui::Vec2::new(0.0, 38.0))
 }
 
 // ── Ready ───────────────────────────────────────────────────────────────────
@@ -599,8 +647,9 @@ fn destination_card(ui: &mut egui::Ui, app: &mut App) {
 
 // ── Running ─────────────────────────────────────────────────────────────────
 
-fn running(ui: &mut egui::Ui, app: &mut App) {
-    let Some(job) = &app.export_job else { return };
+fn running(ui: &mut egui::Ui, app: &mut App) -> PageAction {
+    let mut action = PageAction::default();
+    let Some(job) = &app.export_job else { return action };
     let inner = COLUMN - 34.0;
     let elapsed = job.started.elapsed().as_secs_f64();
     let stopping = job.stopping();
@@ -636,6 +685,34 @@ fn running(ui: &mut egui::Ui, app: &mut App) {
         );
     });
 
+    ui.add_space(18.0);
+    // The wizard behind this page is locked while the render is on screen,
+    // so there has to be a way forward from here. This is it: set the next
+    // tape up and let this one carry on in the background.
+    theme::card().show(ui, |ui| {
+        ui.set_width(inner);
+        ui.label(
+            RichText::new("Line up another video")
+                .size(theme::FONT_BODY)
+                .color(theme::text()),
+        );
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(
+                "You do not have to wait. Set the next tape up now and add it                  to the queue — it will start when this one finishes, and this                  export keeps running while you work.",
+            )
+            .size(theme::FONT_SMALL)
+            .color(theme::faint()),
+        );
+        ui.add_space(12.0);
+        if theme::secondary(ui, "Choose another video").clicked() {
+            // Clears the file as well as navigating, which is what lifts the
+            // lock on the wizard: with no video loaded, the pages behind this
+            // one are about the next job rather than the running one.
+            action.another_video = true;
+        }
+    });
+
     ui.add_space(22.0);
     support_card(ui, inner);
 
@@ -646,6 +723,7 @@ fn running(ui: &mut egui::Ui, app: &mut App) {
 
     // The bar only moves if something asks for a repaint.
     ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+    action
 }
 
 /// The flag picker, folded away behind a link.

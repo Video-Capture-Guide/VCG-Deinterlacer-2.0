@@ -20,6 +20,11 @@ pub struct PageAction {
     pub start_probe: bool,
     /// Start writing the finished video.
     pub start_export: bool,
+    /// Put the current settings on the export queue instead of starting now.
+    pub add_to_queue: bool,
+    /// Clear the wizard and start on another video, leaving any running
+    /// export alone.
+    pub another_video: bool,
     pub set_mode: Option<Mode>,
     /// A fix toggle was flipped: (check, on).
     pub set_fix: Option<(Check, bool)>,

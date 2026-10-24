@@ -16,6 +16,7 @@ mod findings;
 mod flags;
 mod nav;
 mod pages;
+mod queue;
 mod settings;
 mod setup;
 mod trim;
@@ -332,6 +333,23 @@ pub struct App {
     pub crop_frame_job: Option<FrameJob>,
 
     pub export_job: Option<ExportJob>,
+    /// The snapshot the running export was started from.
+    ///
+    /// Held separately from `ExportJob` because the companion files are
+    /// written when the job *ends*, and by then the wizard may well have
+    /// moved on to the next tape. Reading `self.config` there would describe
+    /// a pipeline that never ran. See `queue::QueuedJob`.
+    pub current_job: Option<queue::QueuedJob>,
+    /// Videos lined up behind the running one, run one at a time.
+    pub queue: queue::ExportQueue,
+    /// Jobs that have ended, newest last. Shown in the queue panel so an
+    /// unattended batch can be read back.
+    pub queue_history: Vec<queue::Finished>,
+    /// Whether the queue panel is open.
+    pub show_queue: bool,
+    /// What the queue last did, shown as a line in the panel so an action
+    /// with no visible effect still says something happened.
+    pub queue_notice: Option<String>,
     /// The finished export, kept so the page can describe it after the job
     /// has gone. `Err` holds the reason, for the details panel.
     pub export_done: Option<Result<export::ExportSummary, String>>,
@@ -529,6 +547,11 @@ impl App {
             crop_frame: None,
             crop_frame_job: None,
             export_job: None,
+            current_job: None,
+            queue: queue::ExportQueue::default(),
+            queue_history: Vec::new(),
+            show_queue: false,
+            queue_notice: None,
             export_done: None,
             crop_sides_base: None,
             export_folder: None,
@@ -1214,14 +1237,20 @@ impl App {
         Some(fallback)
     }
 
+    /// Write the `.settings.json`, `.vpy` and `.log.txt` beside the output.
+    ///
+    /// Everything is read from `job`, the snapshot the export was started
+    /// from, rather than from `self`. By the time a run ends the wizard may
+    /// be configuring the next tape, and with a queue it usually is.
     fn write_companions(
         &self,
+        job: &queue::QueuedJob,
         outcome: Option<&vcg_tools::encode::Outcome>,
         took: f64,
     ) -> Vec<PathBuf> {
         let mut written = Vec::new();
         let Some(o) = outcome else { return written };
-        if !self.save_log && !self.save_settings && !self.save_script {
+        if !job.save_log && !job.save_settings && !job.save_script {
             return written;
         }
 
@@ -1231,17 +1260,12 @@ impl App {
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "export".to_string());
         let dir = o.output.parent().map(PathBuf::from).unwrap_or_default();
-        let source_name = self
-            .file
-            .as_ref()
-            .and_then(|f| f.file_name())
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let findings = self.report.as_ref().map(findings_text);
+        let source_name = job.source_name();
+        let findings = job.findings.clone();
 
-        if self.save_settings {
+        if job.save_settings {
             let json = vcg_core::provenance::sidecar_json(
-                &self.config,
+                &job.config,
                 VERSION,
                 &source_name,
                 findings.as_deref(),
@@ -1259,20 +1283,20 @@ impl App {
         // Needs the deps root for the plugin-loading block — without one the
         // script would be written with that block missing, which is a script
         // that does not run. Better to write nothing and say so.
-        if self.save_script
+        if job.save_script
             && let Some(vs) = self.tools.vs_deps_dir.clone()
         {
             let script =
-                vcg_core::vpy::generate_vpy(&self.config, &vcg_core::vpy::DepsPaths::new(vs));
+                vcg_core::vpy::generate_vpy(&job.config, &vcg_core::vpy::DepsPaths::new(vs));
             let path = dir.join(format!("{stem}.vpy"));
             if std::fs::write(&path, script).is_ok() {
                 written.push(path);
             }
         }
 
-        if self.save_log {
+        if job.save_log {
             let text = vcg_core::provenance::log_text(vcg_core::provenance::LogEntry {
-                config: &self.config,
+                config: &job.config,
                 version: VERSION,
                 source_name: &source_name,
                 output_name: &o.output.file_name().unwrap_or_default().to_string_lossy(),
@@ -1280,7 +1304,7 @@ impl App {
                 seconds: took,
                 findings: findings.as_deref(),
                 tool_output: &o.tool_output,
-                mode: Some(self.mode),
+                mode: Some(job.mode),
             });
             let path = dir.join(format!("{stem}.log.txt"));
             if std::fs::write(&path, text).is_ok() {
@@ -1412,30 +1436,188 @@ impl App {
         ""
     }
 
-    fn start_export(&mut self) {
-        if self.export_job.is_some() || !self.can_export() {
+    /// Freeze what is on screen into a job that can be run now or later.
+    ///
+    /// `None` when the current state could not be exported at all, which is
+    /// the same set of conditions `can_export` reports.
+    pub fn job_from_current_state(&self) -> Option<queue::QueuedJob> {
+        let source = self.file.clone()?;
+        let info = self.report.as_ref().and_then(|r| r.info)?;
+        Some(queue::QueuedJob {
+            // Replaced by the queue when the job is added; a job started
+            // straight away never uses it.
+            id: 0,
+            source,
+            config: self.config.clone(),
+            mode: self.mode,
+            export_folder: self.export_folder.clone(),
+            source_seconds: info.duration,
+            source_fps: info.fps,
+            comparison: self.save_comparison,
+            save_log: self.save_log,
+            save_settings: self.save_settings,
+            save_script: self.save_script,
+            findings: self.report.as_ref().map(findings_text),
+        })
+    }
+
+    /// Where a job's output will go.
+    ///
+    /// Settled here, as the job starts, rather than when it was queued. The
+    /// free-name search looks at what is on disk, and while a job waits its
+    /// turn the files around it change — not least because the job ahead of
+    /// it in the queue is busy writing one.
+    fn output_for(job: &queue::QueuedJob) -> Option<PathBuf> {
+        let dir = match &job.export_folder {
+            Some(dir) => dir.clone(),
+            None => job.source.parent().map(PathBuf::from)?,
+        };
+        Some(export::output_in(&dir, &job.source, &job.config))
+    }
+
+    /// Begin running `job`. Does nothing if an export is already going.
+    fn start_job(&mut self, job: queue::QueuedJob) {
+        if self.export_job.is_some() {
             return;
         }
-        let (Some(file), Some(output)) = (self.file.clone(), self.output_path()) else {
-            return;
-        };
-        let Some(info) = self.report.as_ref().and_then(|r| r.info) else {
+        let Some(output) = Self::output_for(&job) else {
             return;
         };
         let Some(vs) = self.tools.vs_deps_dir.clone() else {
             return;
         };
-        self.export_done = None;
+        // Only the file on screen loses its finished summary. When the queue
+        // starts the *next* job on its own, the user is very often still
+        // looking at the one that just ended — clearing it there would snatch
+        // the result away at the moment it appeared and leave the page
+        // looking as though the export had never run.
+        if queue::viewing_job(self.file.as_deref(), Some(&job.source)) {
+            self.export_done = None;
+        }
         self.export_job = Some(ExportJob::start(
             self.tools.clone(),
             vcg_core::vpy::DepsPaths::new(vs),
-            self.config.clone(),
-            file,
+            job.config.clone(),
+            job.source.clone(),
             output,
-            info.duration,
-            info.fps,
-            self.save_comparison,
+            job.source_seconds,
+            job.source_fps,
+            job.comparison,
         ));
+        self.current_job = Some(job);
+    }
+
+    fn start_export(&mut self) {
+        if self.export_job.is_some() || !self.can_export() {
+            return;
+        }
+        let Some(job) = self.job_from_current_state() else {
+            return;
+        };
+        self.start_job(job);
+    }
+
+    /// Add the current settings to the queue and clear the wizard for the
+    /// next video.
+    ///
+    /// If nothing is running the job starts immediately, which is what makes
+    /// the queue feel like a printer queue rather than a holding pen: the
+    /// first thing you add just goes.
+    pub fn add_to_queue(&mut self) {
+        if !self.can_export() {
+            return;
+        }
+        let Some(job) = self.job_from_current_state() else {
+            return;
+        };
+        let name = job.source_name();
+
+        if self.export_job.is_none() {
+            self.start_job(job);
+            self.queue_notice = Some(format!("{name} started."));
+        } else {
+            self.queue.push(job);
+            let waiting = self.queue.len();
+            self.queue_notice = Some(format!(
+                "{name} added — {waiting} waiting behind the one running."
+            ));
+        }
+        self.reset_for_another();
+    }
+
+    /// Drop a waiting job, or stop the running one.
+    ///
+    /// Removing the job that is running means cancelling it, which is the
+    /// same stop the Export page offers. The next job then starts on its own
+    /// when the worker comes back, through the ordinary completion path —
+    /// there is no second route by which a job can begin.
+    pub fn remove_queued(&mut self, id: u64) {
+        if self.running_id() == Some(id) {
+            if let Some(job) = &self.export_job {
+                job.stop();
+                let name = self
+                    .current_job
+                    .as_ref()
+                    .map(|j| j.source_name())
+                    .unwrap_or_default();
+                self.queue_notice = Some(format!("Stopping {name}…"));
+            }
+            return;
+        }
+        let name = self
+            .queue
+            .items()
+            .iter()
+            .find(|j| j.id == id)
+            .map(|j| j.source_name());
+        if self.queue.remove(id) {
+            self.queue_notice = name.map(|n| format!("{n} removed from the queue."));
+        }
+    }
+
+    /// Whether the file on screen is the one currently being exported.
+    ///
+    /// With a queue the two come apart: a render carries on while the wizard
+    /// is set up for the next tape. Pages that describe "the export" have to
+    /// know which of the two they are talking about.
+    pub fn showing_running_job(&self) -> bool {
+        queue::viewing_job(
+            self.file.as_deref(),
+            self.current_job.as_ref().map(|j| j.source.as_path()),
+        )
+    }
+
+    /// Whether the wizard is showing the job that is rendering, and so must
+    /// not be edited.
+    ///
+    /// Narrower than `showing_running_job`: with no video loaded the user is
+    /// starting on the next one, which is exactly when the wizard *should* be
+    /// open. The two questions look alike and are not the same — one decides
+    /// which panel the Export page draws, this one decides whether the pages
+    /// behind it can be touched.
+    pub fn wizard_locked(&self) -> bool {
+        self.file.is_some() && self.showing_running_job()
+    }
+
+    /// The id standing for the running job in the queue list.
+    ///
+    /// Running jobs are not held in `ExportQueue`, so they need an id that
+    /// cannot collide with a waiting one. Zero is never handed out by
+    /// `ExportQueue::push`, which starts at one.
+    pub fn running_id(&self) -> Option<u64> {
+        self.export_job.as_ref().map(|_| queue::RUNNING_JOB_ID)
+    }
+
+    /// Start the next job if one is waiting and nothing is running.
+    fn start_next_queued(&mut self) {
+        if self.export_job.is_some() {
+            return;
+        }
+        if let Some(job) = self.queue.pop_front() {
+            let name = job.source_name();
+            self.start_job(job);
+            self.queue_notice = Some(format!("Started {name}."));
+        }
     }
 
     /// Back to the start, keeping the tool paths and the mode.
@@ -1557,6 +1739,20 @@ fn tool_lines(tools: &ToolPaths) -> Vec<String> {
     lines
 }
 
+/// The footer's Back button, built here so it can be drawn with
+/// `add_enabled` — `theme::secondary` always draws an enabled one.
+fn back_button() -> egui::Button<'static> {
+    egui::Button::new(
+        egui::RichText::new("   Back")
+            .size(theme::FONT_BODY)
+            .color(theme::text()),
+    )
+    .fill(theme::panel2())
+    .stroke(egui::Stroke::new(1.0, theme::line()))
+    .corner_radius(theme::RADIUS_SMALL)
+    .min_size(egui::Vec2::new(0.0, 36.0))
+}
+
 fn short(path: &std::path::Path) -> String {
     let parts: Vec<_> = path.components().collect();
     if parts.len() <= 2 {
@@ -1664,11 +1860,14 @@ impl eframe::App for App {
             // Taken before anything borrows self: the job is borrowed from
             // self, so reading it after that is a borrow conflict.
             let intended_output = job.output.clone();
-            // Written now, while the config and the findings are still the
-            // ones the export used. Doing it on the button press instead
-            // would let a setting changed afterwards be recorded as though it
-            // had been applied, which is worse than having no record at all.
-            let mut companions = self.write_companions(result.as_ref().ok(), took);
+            // Written from the snapshot the job was started with, not from
+            // what is on screen now — with a queue running, the wizard has
+            // usually moved on to another tape by this point.
+            let snapshot = self.current_job.take();
+            let mut companions = match &snapshot {
+                Some(j) => self.write_companions(j, result.as_ref().ok(), took),
+                None => Vec::new(),
+            };
             // A failure writes its own log unconditionally. `output` comes
             // from the job rather than the result, because a failed export
             // has no result to ask.
@@ -1692,7 +1891,7 @@ impl eframe::App for App {
                 )),
                 (other, _) => other,
             };
-            self.export_done = Some(result.map(|o| {
+            let summary = result.map(|o| {
                 let bytes = std::fs::metadata(&o.output).map(|m| m.len()).unwrap_or(0);
                 export::ExportSummary {
                     output: o.output,
@@ -1702,9 +1901,42 @@ impl eframe::App for App {
                     bytes,
                     companions,
                 }
-            }));
+            });
+
+            // Every finished job is recorded for the queue panel, so a batch
+            // left running unattended can be read back afterwards.
+            if let Some(j) = &snapshot {
+                self.queue_history.push(queue::Finished {
+                    source_name: j.source_name(),
+                    outcome: match &summary {
+                        Ok(s) => Ok(s.output.clone()),
+                        Err(why) => Err(why.clone()),
+                    },
+                });
+            }
+
+            // The Export page's finished panel describes the file the user
+            // has open. When a queued job ends while they are setting up the
+            // next tape, showing them the previous tape's result on the page
+            // they are working in would be a lie about what they are looking
+            // at; the queue panel carries it instead.
+            // A job with no snapshot cannot be matched against the open
+            // file, so it is shown rather than silently dropped — losing the
+            // only report of a finished export is the worse failure.
+            let still_showing = snapshot.is_none()
+                || queue::viewing_job(
+                    self.file.as_deref(),
+                    snapshot.as_ref().map(|j| j.source.as_path()),
+                );
+            if still_showing {
+                self.export_done = Some(summary);
+            }
             self.export_job = None;
             self.export_stop_armed = false;
+            // One at a time: the next job can only begin once the previous
+            // one has come back through here, so two encoders can never be
+            // running at once however fast the user clicks.
+            self.start_next_queued();
         }
 
         // Collect a scrub frame, discarding one for a position already left.
@@ -1764,9 +1996,21 @@ impl eframe::App for App {
             .resizable(false)
             .frame(egui::Frame::NONE.fill(theme::sidebar()))
             .show(ui, |ui| {
-                match nav::sidebar(ui, self.step, &self.visited, has_file, self.mode) {
+                let badge = nav::QueueBadge {
+                    total: self.queue.len() + usize::from(self.export_job.is_some()),
+                    running: self.export_job.is_some(),
+                };
+                // While the user is watching their own render, the wizard
+                // behind it is locked: edits there would apply to nothing,
+                // which is the confusion the brief asked us to remove. Choose
+                // video stays reachable whatever this says, and picking
+                // another tape is what unlocks it — the running job carries
+                // on regardless.
+                let reachable = has_file && !self.wizard_locked();
+                match nav::sidebar(ui, self.step, &self.visited, reachable, self.mode, badge) {
                     nav::SidebarAction::Goto(step) => self.visit(step),
                     nav::SidebarAction::OpenAbout => self.show_about = true,
+                    nav::SidebarAction::OpenQueue => self.show_queue = true,
                     nav::SidebarAction::None => {}
                 }
             });
@@ -1845,6 +2089,8 @@ impl eframe::App for App {
                 }
                 action.start_probe |= page.start_probe;
                 action.start_export |= page.start_export;
+                action.add_to_queue |= page.add_to_queue;
+                action.another_video |= page.another_video;
                 if page.set_mode.is_some() {
                     action.set_mode = page.set_mode;
                 }
@@ -1856,6 +2102,7 @@ impl eframe::App for App {
         // Drawn last so it sits over the sidebar and the footer as well as
         // the page; a modal that only covers the body is not modal.
         about::about_modal(ui.ctx(), self);
+        queue::queue_modal(ui.ctx(), self);
 
         // ── Apply everything the frame asked for ────────────────────────────
         let pending = std::mem::take(&mut *self.pending.borrow_mut());
@@ -1882,6 +2129,12 @@ impl eframe::App for App {
         if action.start_probe {
             self.start_probe();
         }
+        if action.another_video {
+            self.reset_for_another();
+        }
+        if action.add_to_queue {
+            self.add_to_queue();
+        }
         if action.start_export {
             self.start_export();
         }
@@ -1900,11 +2153,16 @@ impl App {
         let step = self.step;
         let mode = self.mode;
 
+        // Greyed while the running job is on screen, for the same reason the
+        // sidebar is: going back to change a setting that cannot reach the
+        // render in progress looks like it worked.
+        let locked = self.wizard_locked();
+
         ui.horizontal(|ui| {
             if let Some(prev) = step.prev_in(mode) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 7.0;
-                    let response = theme::secondary(ui, "   Back");
+                    let response = ui.add_enabled(!locked, back_button());
                     // The arrow is drawn into the button's own rect, because
                     // the bundled fonts have no arrow glyph.
                     let r = egui::Rect::from_center_size(
@@ -1912,10 +2170,16 @@ impl App {
                         egui::vec2(14.0, 14.0),
                     );
                     if ui.is_rect_visible(r) {
-                        theme::icon::arrow(ui.painter(), r, theme::text(), theme::icon::Dir::Left);
+                        let tint = if locked { theme::faint() } else { theme::text() };
+                        theme::icon::arrow(ui.painter(), r, tint, theme::icon::Dir::Left);
                     }
                     if response.clicked() {
                         go = Some(prev);
+                    }
+                    if locked {
+                        response.on_hover_text(
+                            "This video is being exported. Choose another video to set the next one up — the export keeps running.",
+                        );
                     }
                 });
             }

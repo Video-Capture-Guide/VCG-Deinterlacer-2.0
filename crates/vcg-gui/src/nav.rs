@@ -174,6 +174,7 @@ pub enum SidebarAction {
     None,
     Goto(Step),
     OpenAbout,
+    OpenQueue,
 }
 
 /// Draw the sidebar and report what was clicked.
@@ -183,9 +184,11 @@ pub fn sidebar(
     visited: &[Step],
     reachable: bool,
     mode: Mode,
+    queue: QueueBadge,
 ) -> SidebarAction {
     let mut clicked = None;
     let mut about = false;
+    let mut open_queue = false;
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {
@@ -262,8 +265,31 @@ pub fn sidebar(
         }
     }
 
-    // About sits at the foot of the sidebar, below everything numbered, so
-    // it reads as "not part of the sequence" rather than as a last step.
+    // The queue and About sit at the foot of the sidebar, below everything
+    // numbered, so they read as "not part of the sequence" rather than as
+    // last steps.
+    //
+    // The queue row appears only once there is something in it. An empty
+    // queue is not a thing a first-time user needs to be told about, and the
+    // Export page offers the way in when it becomes relevant.
+    if queue.total > 0 {
+        ui.add_space(14.0);
+        ui.horizontal(|ui| {
+            ui.add_space(16.0);
+            let label = if queue.running {
+                match queue.total {
+                    1 => "Export queue — 1 running".to_string(),
+                    n => format!("Export queue — 1 running, {} waiting", n - 1),
+                }
+            } else {
+                format!("Export queue — {} waiting", queue.total)
+            };
+            if theme::link(ui, &label).clicked() {
+                open_queue = true;
+            }
+        });
+    }
+
     ui.add_space(14.0);
     ui.horizontal(|ui| {
         ui.add_space(16.0);
@@ -272,13 +298,23 @@ pub fn sidebar(
         }
     });
 
-    if about {
+    if open_queue {
+        SidebarAction::OpenQueue
+    } else if about {
         SidebarAction::OpenAbout
     } else if let Some(step) = clicked {
         SidebarAction::Goto(step)
     } else {
         SidebarAction::None
     }
+}
+
+/// What the sidebar needs to know about the queue to label its row.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct QueueBadge {
+    /// Jobs waiting plus the one running, if any.
+    pub total: usize,
+    pub running: bool,
 }
 
 struct RowSpec<'a> {
