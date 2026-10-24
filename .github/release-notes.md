@@ -217,5 +217,5 @@ file.
 reason for each, in one place — plus a button that asks GitHub whether there is
 a newer version.
 
-See the [README](https://github.com/Video-Capture-Guide/vcg-deinterlacer-rust#readme)
+See the [README](https://github.com/Video-Capture-Guide/VCG-Deinterlacer-2.0#readme)
 for the full detail on any of this.

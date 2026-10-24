@@ -23,7 +23,7 @@ use std::time::Duration;
 /// pre-releases and drafts, and an unfinished tag must never be offered to
 /// somebody who only wants the stable build.
 const LATEST_RELEASE_API: &str =
-    "https://api.github.com/repos/Video-Capture-Guide/vcg-deinterlacer-rust/releases/latest";
+    "https://api.github.com/repos/Video-Capture-Guide/VCG-Deinterlacer-2.0/releases/latest";
 
 /// GitHub rejects API requests with no user agent, and asks that it identify
 /// the application.
@@ -98,7 +98,7 @@ pub fn check(current: &str) -> Outcome {
 }
 
 fn vcg_repo() -> &'static str {
-    "https://github.com/Video-Capture-Guide/vcg-deinterlacer-rust"
+    "https://github.com/Video-Capture-Guide/VCG-Deinterlacer-2.0"
 }
 
 fn fetch() -> Result<String, String> {

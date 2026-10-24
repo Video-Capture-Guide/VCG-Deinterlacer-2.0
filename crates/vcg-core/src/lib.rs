@@ -39,7 +39,7 @@ pub const BUILD_DATE: &str = "2026-10-24";
 pub const VERSION_STRING: &str = "2.0.4 (2026-10-24)";
 
 /// Where releases are published, for the update check and the About page.
-pub const REPO_URL: &str = "https://github.com/Video-Capture-Guide/vcg-deinterlacer-rust";
+pub const REPO_URL: &str = "https://github.com/Video-Capture-Guide/VCG-Deinterlacer-2.0";
 
 pub const AUTHOR_HANDLE: &str = "@VideoCaptureGuide";
 
