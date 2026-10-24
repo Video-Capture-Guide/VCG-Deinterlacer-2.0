@@ -1,3 +1,65 @@
+## New in 2.0.4
+
+**An export queue.** Line up as many tapes as you like and leave them: they
+export one at a time, in order, and you can set the next one up while one is
+running. Each job is a *snapshot* — the file, the settings, the mode and the
+measured findings are copied when you add it — so changing anything in the
+wizard afterwards belongs to the next video, never to one already queued.
+The queue has its own page, reachable from the sidebar at any time: what is
+running with live progress, what is waiting with how long each should take,
+and what has finished with its size and a link straight to the folder. Jobs
+can be reordered, copied or removed, and removing the one that is running
+stops it and moves on to the next.
+
+Time estimates are measured rather than guessed. The cost per second of
+source comes from jobs your machine has actually finished, so until one has,
+the page says "measuring" instead of inventing a number.
+
+**Colour is now denoised, not just brightness.** Tape chroma noise was
+neither measured nor removed, and the app explained why in terms that were
+backwards — it said tape chroma is "already soft" so filtering it costs more
+than it saves. Softness means there is little detail there to lose, which
+makes chroma cheap and safe to filter; VHS records colour as a subcarrier
+near 629 kHz and it arrives soft *and* noisy, which are independent facts.
+
+The noise check could not see chroma at all: its indicator, temporal
+outliers, does not move when only the colour is noisy — measured, it sits
+unchanged while chroma noise is raised from nothing to severe. Inter-frame
+colour difference is now read as well, judged against the luma so that scene
+movement cancels out, and calibrated against real captures. Denoising runs
+as two passes — brightness with a temporal radius, colour spatially only, at
+half again the strength — which is both the correct treatment, since
+matching colour blocks across frames is what smears them, and the cheaper
+one.
+
+## Fixed in 2.0.4
+
+**A queue left running overnight could stop between videos.** Three tapes
+queued at bedtime, and the third had not started by morning; opening the app
+set it going again. The interface only redraws when something asks it to, and
+finished jobs are collected during a redraw — so with nobody at the machine,
+a render finished into a channel nobody was reading, was never marked done,
+and never handed over to the next job. The log told the story exactly: 693
+minutes elapsed against 37 minutes of actual encoding. Workers now wake the
+interface themselves when they finish, which does not depend on the window
+being visible — Windows stops redrawing a minimised one, which is precisely
+the state an unattended batch is in.
+
+**The Queue card in the sidebar was cut off**, showing "Fi" where its status
+should be, and it only appeared once something was in the queue — so the one
+place that says what is waiting was invisible exactly when you went looking
+for it. It is now always there and reads correctly.
+
+**Gaps in the middle of sentences, again.** The same defect as 2.0.3 and from
+the same cause: an edit stripped the line-continuations out of five sentences
+on the Export page and left each line's indentation inside the words. All are
+single-spaced now, and the whole interface is checked for it.
+
+**Waiting for the preview is no longer a dead end.** That render takes a
+minute or two, and a line of grey text saying "Preparing preview" was being
+read as a hang. There is now a moving bar and a line saying roughly how long
+it takes and that the rest of the page is ready to read meanwhile.
+
 ## Fixed in 2.0.3
 
 **Gaps in the middle of sentences.** Explanatory text on the Export, Check
@@ -87,7 +149,7 @@ you what it found and what it recommends doing about it, and writes an archival
 master. Every recommendation can be overridden, and every number behind one can
 be read.
 
-## New in this version
+## What the app does, introduced in 2.0
 
 **Automatic cropping, measured off your own frames.** Other tools crop a fixed
 number of columns — BT.601 takes 8 from each side whatever the file looks like.
