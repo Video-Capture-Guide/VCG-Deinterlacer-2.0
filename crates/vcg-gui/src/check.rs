@@ -476,6 +476,22 @@ fn preview_row(ui: &mut egui::Ui, app: &App, inner_width: f32) {
                 preview_pane(ui, None, each, "Preparing preview…");
                 preview_pane(ui, None, each, "");
             });
+            ui.add_space(10.0);
+            // The moving bar belongs under both panes rather than inside one,
+            // because the wait is for the pair.
+            theme::indeterminate_bar(ui, inner_width, 5.0);
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(
+                        "Rendering a few seconds of the tape through the \
+                         deinterlacer. This takes a minute or two \u{2014} the \
+                         rest of the page is ready to read meanwhile.",
+                    )
+                    .size(theme::FONT_SMALL)
+                    .color(theme::faint()),
+                );
+            });
             ui.add_space(16.0);
             ui.ctx().request_repaint();
         }

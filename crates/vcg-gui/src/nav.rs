@@ -270,88 +270,108 @@ pub fn sidebar(
     // numbered, so they read as "not part of the sequence" rather than as
     // last steps.
     //
-    // The queue card appears only once there is something in it. An empty
-    // queue is not a thing a first-time user needs to be told about, and the
-    // Export page offers the way in when it becomes relevant.
-    if queue.total > 0 {
-        ui.add_space(18.0);
-        ui.horizontal(|ui| {
-            ui.add_space(12.0);
-            let card = egui::Frame::NONE
-                .fill(if current_is_queue { theme::panel() } else { theme::panel2() })
-                .corner_radius(theme::RADIUS_SMALL)
-                .inner_margin(egui::Margin::symmetric(12, 10))
-                .stroke(egui::Stroke::new(
-                    1.0,
-                    if current_is_queue { theme::accent() } else { theme::line() },
-                ));
+    // The card is always drawn, even with nothing in it. It used to appear
+    // only when the queue had something in it, which meant the one place that
+    // tells you what is waiting and how long it will take was invisible
+    // exactly when you were trying to find it — and after the modal became a
+    // page there was no other way in at all.
+    ui.add_space(18.0);
+    let card_top = ui.cursor().top();
 
-            card.show(ui, |ui| {
-                ui.set_width(157.0);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Queue")
-                            .size(theme::FONT_BODY)
-                            .color(theme::text()),
-                    );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // The badge counts what is still to come, which is
-                        // what someone glancing at the sidebar wants to know —
-                        // not how many have been done.
-                        let (text, fill) = if queue.failed > 0 {
-                            (format!("{} failed", queue.failed), theme::fix())
-                        } else {
-                            (format!("{} left", queue.left), theme::accent())
-                        };
-                        egui::Frame::NONE
-                            .fill(fill)
-                            .corner_radius(9.0)
-                            .inner_margin(egui::Margin::symmetric(7, 2))
-                            .show(ui, |ui| {
-                                ui.label(
-                                    RichText::new(text)
-                                        .size(theme::FONT_TINY)
-                                        .color(egui::Color32::WHITE),
-                                );
-                            });
+    ui.horizontal(|ui| {
+        ui.add_space(12.0);
+        egui::Frame::NONE
+            .fill(if current_is_queue { theme::panel() } else { theme::panel2() })
+            .corner_radius(theme::RADIUS_SMALL)
+            .inner_margin(egui::Margin::symmetric(11, 9))
+            .stroke(egui::Stroke::new(
+                1.0,
+                if current_is_queue { theme::accent() } else { theme::line() },
+            ))
+            .show(ui, |ui| {
+                // **Vertical, explicitly.** A Frame inside `ui.horizontal`
+                // inherits that horizontal layout, so without this the title,
+                // the badge and the status line were laid out as one row and
+                // ran off the end of a 205px sidebar — which is why the status
+                // read "Fi".
+                ui.vertical(|ui| {
+                    // 205 sidebar − 12 indent − 22 frame margins − a little
+                    // slack for the stroke.
+                    ui.set_width(155.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new("Queue")
+                                .size(theme::FONT_BODY)
+                                .color(theme::text()),
+                        );
+                        ui.with_layout(
+                            egui::Layout::right_to_left(egui::Align::Center),
+                            |ui| {
+                                // What is still to come, which is what someone
+                                // glancing at the sidebar wants to know — not
+                                // how many have been done.
+                                let (text, fill) = if queue.failed > 0 {
+                                    (format!("{} failed", queue.failed), theme::fix())
+                                } else if queue.left > 0 {
+                                    (format!("{} left", queue.left), theme::accent())
+                                } else {
+                                    (String::new(), theme::accent())
+                                };
+                                if !text.is_empty() {
+                                    egui::Frame::NONE
+                                        .fill(fill)
+                                        .corner_radius(9.0)
+                                        .inner_margin(egui::Margin::symmetric(7, 2))
+                                        .show(ui, |ui| {
+                                            ui.label(
+                                                RichText::new(text)
+                                                    .size(theme::FONT_TINY)
+                                                    .color(egui::Color32::WHITE),
+                                            );
+                                        });
+                                }
+                            },
+                        );
                     });
-                });
 
-                if queue.running {
-                    ui.add_space(7.0);
-                    ui.add(
-                        egui::ProgressBar::new(queue.fraction)
-                            .desired_height(4.0)
-                            .corner_radius(2.0),
+                    if queue.running {
+                        ui.add_space(7.0);
+                        ui.add(
+                            egui::ProgressBar::new(queue.fraction)
+                                .desired_height(4.0)
+                                .corner_radius(2.0),
+                        );
+                    }
+                    ui.add_space(5.0);
+                    // Wrapped, not truncated: "Finished · needs attention" is
+                    // two lines in this width and both of them matter.
+                    ui.label(
+                        RichText::new(&queue.status)
+                            .size(theme::FONT_TINY)
+                            .color(theme::faint()),
                     );
-                }
-                ui.add_space(5.0);
-                ui.label(
-                    RichText::new(&queue.status)
-                        .size(theme::FONT_TINY)
-                        .color(theme::faint()),
-                );
+                });
             });
-        });
+    });
 
-        // The whole card is the target, which is a kinder hit area than a
-        // line of link text for the older users the brief has in mind.
-        let rect = ui.min_rect();
-        let id = ui.id().with("queue-card");
-        let response = ui.interact(
-            egui::Rect::from_min_max(
-                egui::pos2(rect.left() + 12.0, rect.bottom() - 62.0),
-                egui::pos2(rect.left() + 193.0, rect.bottom()),
-            ),
-            id,
-            egui::Sense::click(),
-        );
-        if response.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        if response.clicked() {
-            open_queue = true;
-        }
+    // The whole card is the target, which is a kinder hit area than a line of
+    // link text for the older users the brief has in mind. Measured from the
+    // cursor rather than guessed, so it tracks however tall the card grows.
+    let card_rect = egui::Rect::from_min_max(
+        egui::pos2(ui.min_rect().left() + 12.0, card_top),
+        egui::pos2(ui.min_rect().left() + 193.0, ui.cursor().top()),
+    );
+    let response = ui.interact(
+        card_rect,
+        ui.id().with("queue-card"),
+        egui::Sense::click(),
+    );
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    if response.clicked() {
+        open_queue = true;
     }
 
     ui.add_space(14.0);
@@ -379,8 +399,6 @@ pub fn sidebar(
 /// before the page and must not depend on the rest of the interface.
 #[derive(Debug, Clone, Default)]
 pub struct QueueBadge {
-    /// Everything the queue knows about: done, running and waiting.
-    pub total: usize,
     /// Still to come — the running job plus whatever is behind it.
     pub left: usize,
     pub failed: usize,

@@ -1026,6 +1026,43 @@ pub fn link(ui: &mut egui::Ui, text: &str) -> egui::Response {
 }
 
 
+/// An indeterminate progress bar: a band that slides along a track.
+///
+/// For waits with no measurable progress — the preview render is the one that
+/// prompted it. A line of grey text saying "Preparing preview…" is easy to
+/// read as a dead end, and this one can take a couple of minutes, so people
+/// concluded it had hung. Something moving says the machine is still working
+/// in a way no wording can.
+///
+/// Drives its own repaints, so a caller cannot forget to animate it.
+pub fn indeterminate_bar(ui: &mut egui::Ui, width: f32, height: f32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, height), egui::Sense::hover());
+    if !ui.is_rect_visible(rect) {
+        return;
+    }
+    let radius = height / 2.0;
+    ui.painter().rect_filled(rect, radius, palette().panel2);
+
+    // A band a third of the width, sweeping across and easing at the turns so
+    // it reads as deliberate motion rather than a glitch.
+    let period = 1.6_f64;
+    let t = (ui.input(|i| i.time) % period) / period;
+    let eased = (1.0 - (t * std::f64::consts::TAU).cos()) / 2.0;
+    let band = width * 0.34;
+    let x = rect.left() + (rect.width() + band) * eased as f32 - band;
+
+    let band_rect = egui::Rect::from_min_max(
+        Pos2::new(x.max(rect.left()), rect.top()),
+        Pos2::new((x + band).min(rect.right()), rect.bottom()),
+    );
+    if band_rect.width() > 0.5 {
+        ui.painter().rect_filled(band_rect, radius, palette().accent);
+    }
+
+    // 60fps while it is on screen; the bar is the only thing moving.
+    ui.ctx().request_repaint_after(std::time::Duration::from_millis(16));
+}
+
 /// Draw a focus ring around a widget that has keyboard focus.
 ///
 /// egui puts anything sensing clicks into the tab order and activates it on

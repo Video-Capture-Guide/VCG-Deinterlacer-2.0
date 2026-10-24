@@ -1669,7 +1669,11 @@ impl App {
         let left = self.queue.len() + usize::from(running);
         let total = self.queue_history.len() + left;
 
-        let status = if running {
+        let status = if total == 0 {
+            // The card is drawn even when the queue has never been used, so
+            // this is the first thing most people read about it.
+            "Nothing queued".to_string()
+        } else if running {
             if self.stop_after_current {
                 "Stopping after this one".to_string()
             } else {
@@ -1690,7 +1694,7 @@ impl App {
                 / total as f32
         };
 
-        nav::QueueBadge { total, left, failed, running, fraction, status }
+        nav::QueueBadge { left, failed, running, fraction, status }
     }
 
     /// Carry out what the queue page asked for.

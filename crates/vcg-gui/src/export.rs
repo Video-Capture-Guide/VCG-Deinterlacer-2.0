@@ -196,10 +196,12 @@ fn run_choice(
         let position = waiting + usize::from(busy) + 1;
         let queue_body = if busy || waiting > 0 {
             format!(
-                "Goes in at number {position} and starts when the videos ahead                  of it finish. You go back to step 1 to set up the next tape."
+                "Goes in at number {position} and starts when the videos ahead of it \
+                 finish. You go back to step 1 to set up the next tape."
             )
         } else {
-            "Starts straight away, and sends you back to step 1 so you can line              up the next tape while this one runs."
+            "Starts straight away, and sends you back to step 1 so you can line up \
+             the next tape while this one runs."
                 .to_string()
         };
         if choice_card(ui, half, "Add to queue", &queue_body, ready, true) {
@@ -208,10 +210,12 @@ fn run_choice(
 
         // ── Export now ─────────────────────────────────────────────────────
         let now_body = if busy {
-            "Not while another video is exporting — only one runs at a time, so              this one has to join the queue."
+            "Not while another video is exporting — only one runs at a time, so \
+             this one has to join the queue."
                 .to_string()
         } else {
-            "Stays on this page and shows the progress. Use this when it is the              only tape you have to do."
+            "Stays on this page and shows the progress. Use this when it is the \
+             only tape you have to do."
                 .to_string()
         };
         if choice_card(ui, half, "Export now", &now_body, ready && !busy, false) {
@@ -781,7 +785,9 @@ fn running(ui: &mut egui::Ui, app: &mut App) -> PageAction {
         ui.add_space(4.0);
         ui.label(
             RichText::new(
-                "You do not have to wait. Set the next tape up now and add it                  to the queue — it will start when this one finishes, and this                  export keeps running while you work.",
+                "You do not have to wait. Set the next tape up now and add it to the \
+                 queue — it will start when this one finishes, and this export \
+                 keeps running while you work.",
             )
             .size(theme::FONT_SMALL)
             .color(theme::faint()),
