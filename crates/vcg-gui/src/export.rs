@@ -145,64 +145,146 @@ pub fn export_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
 
     let ready = app.file.is_some() && app.can_export();
     let busy = app.export_job.is_some();
-    ui.horizontal(|ui| {
-        // While something is already exporting, queueing is the only thing
-        // this button can honestly do, so it becomes the primary one rather
-        // than sitting next to a Start that would have to be refused.
-        if busy {
-            if theme::primary(ui, "Add to queue", ready).clicked() {
-                action.add_to_queue = true;
-            }
-        } else {
-            if theme::primary(ui, "Start", ready).clicked() {
-                action.start_export = true;
-            }
-            ui.add_space(10.0);
-            if ui
-                .add_enabled(ready, queue_button())
-                .on_hover_text(
-                    "Line this up and go straight on to the next video.                      Queued jobs keep the settings they were added with.",
-                )
-                .clicked()
-            {
-                action.add_to_queue = true;
-            }
+    let waiting = app.queue.len();
+
+    crate::check::section_number(ui, 5, "How do you want to run this?");
+    ui.add_space(10.0);
+    if let Some(choice) = run_choice(ui, ready, busy, waiting) {
+        match choice {
+            RunChoice::Queue => action.add_to_queue = true,
+            RunChoice::Now => action.start_export = true,
         }
-        ui.add_space(12.0);
-        if !ready {
-            ui.label(
-                RichText::new(app.export_blocker())
-                    .size(theme::FONT_SMALL)
-                    .color(theme::fix()),
-            );
-        } else if busy {
-            ui.label(
-                RichText::new(format!(
-                    "Another video is exporting. This one will start when {} jobs ahead of it finish.",
-                    app.queue.len() + 1
-                ))
+    }
+    if !ready {
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new(app.export_blocker())
                 .size(theme::FONT_SMALL)
-                .color(theme::faint()),
-            );
-        }
-    });
+                .color(theme::fix()),
+        );
+    }
 
     action
 }
 
-/// The secondary "Add to queue", styled like `theme::secondary` but built
-/// here so it can be drawn with `add_enabled`.
-fn queue_button() -> egui::Button<'static> {
-    egui::Button::new(
-        RichText::new("Add to queue")
-            .size(theme::FONT_BODY)
-            .color(theme::text()),
-    )
-    .fill(theme::panel2())
-    .stroke(egui::Stroke::new(1.0, theme::line()))
-    .corner_radius(theme::RADIUS_SMALL)
-    .min_size(egui::Vec2::new(0.0, 38.0))
+enum RunChoice {
+    Queue,
+    Now,
 }
+
+/// The two ways to run a job, side by side.
+///
+/// The design asks the question outright rather than hiding queueing behind a
+/// secondary button, because the choice is not obvious from the words alone:
+/// "Start" and "Add to queue" both start an export eventually, and what
+/// differs is what happens to *you* — whether you sit and watch or go and
+/// load the next tape. Each card says that consequence.
+fn run_choice(
+    ui: &mut egui::Ui,
+    ready: bool,
+    busy: bool,
+    waiting: usize,
+) -> Option<RunChoice> {
+    let mut chosen = None;
+    let inner = COLUMN - 34.0;
+    let half = (inner - 14.0) / 2.0;
+
+    ui.horizontal_top(|ui| {
+        ui.spacing_mut().item_spacing.x = 14.0;
+
+        // ── Add to queue ───────────────────────────────────────────────────
+        let position = waiting + usize::from(busy) + 1;
+        let queue_body = if busy || waiting > 0 {
+            format!(
+                "Goes in at number {position} and starts when the videos ahead                  of it finish. You go back to step 1 to set up the next tape."
+            )
+        } else {
+            "Starts straight away, and sends you back to step 1 so you can line              up the next tape while this one runs."
+                .to_string()
+        };
+        if choice_card(ui, half, "Add to queue", &queue_body, ready, true) {
+            chosen = Some(RunChoice::Queue);
+        }
+
+        // ── Export now ─────────────────────────────────────────────────────
+        let now_body = if busy {
+            "Not while another video is exporting — only one runs at a time, so              this one has to join the queue."
+                .to_string()
+        } else {
+            "Stays on this page and shows the progress. Use this when it is the              only tape you have to do."
+                .to_string()
+        };
+        if choice_card(ui, half, "Export now", &now_body, ready && !busy, false) {
+            chosen = Some(RunChoice::Now);
+        }
+    });
+
+    chosen
+}
+
+/// One of the two cards. Returns whether it was clicked.
+fn choice_card(
+    ui: &mut egui::Ui,
+    width: f32,
+    title: &str,
+    body: &str,
+    enabled: bool,
+    recommended: bool,
+) -> bool {
+    let mut clicked = false;
+    ui.scope(|ui| {
+        ui.set_width(width);
+        let frame = egui::Frame::NONE
+            .fill(theme::panel())
+            .corner_radius(theme::RADIUS)
+            .inner_margin(egui::Margin::symmetric(16, 14))
+            .stroke(egui::Stroke::new(
+                if recommended { 2.0 } else { 1.0 },
+                if !enabled {
+                    theme::line()
+                } else if recommended {
+                    theme::accent()
+                } else {
+                    theme::line()
+                },
+            ));
+
+        let response = frame
+            .show(ui, |ui| {
+                ui.set_width(width - 32.0);
+                ui.set_min_height(96.0);
+                ui.label(
+                    RichText::new(title)
+                        .size(theme::FONT_SECTION)
+                        .color(if enabled { theme::text() } else { theme::faint() }),
+                );
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(body)
+                        .size(theme::FONT_SMALL)
+                        .color(theme::faint()),
+                );
+            })
+            .response;
+
+        // The whole card is the target, not a button tucked inside it.
+        let hit = ui.interact(
+            response.rect,
+            ui.id().with(title),
+            if enabled {
+                egui::Sense::click()
+            } else {
+                egui::Sense::hover()
+            },
+        );
+        if enabled && hit.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        clicked = hit.clicked();
+    });
+    clicked
+}
+
 
 // ── Ready ───────────────────────────────────────────────────────────────────
 
@@ -1082,16 +1164,53 @@ fn folder_of(path: &Path) -> String {
 /// Failure is silent on purpose: the file is saved and its location is on
 /// screen, so a message about the file manager would be noise.
 fn reveal(path: &Path) {
+    reveal_path(path)
+}
+
+/// Open a file in whatever the system uses for it, or open a folder.
+///
+/// Used by the queue page's Play link. Failure is silent for the same reason
+/// `reveal_path`'s is: the file is on disk and its path is on screen, so a
+/// complaint about the file manager would be noise.
+pub(crate) fn open_path(path: &Path) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
+        // Through explorer rather than `start`, which is a shell builtin and
+        // would need a cmd.exe wrapper — and a path handed to cmd is a
+        // quoting problem waiting to happen.
         let mut cmd = std::process::Command::new("explorer");
-        cmd.raw_arg(format!("/select,\"{}\"", path.display()));
+        cmd.raw_arg(format!("\"{}\"", path.display()));
         let _ = cmd.spawn();
     }
     #[cfg(not(windows))]
     {
-        if let Some(dir) = path.parent() {
+        let _ = std::process::Command::new("xdg-open").arg(path).spawn();
+    }
+}
+
+/// `reveal`, shared with the queue page.
+///
+/// Takes a folder as well as a file: a queued job has not written anything
+/// yet, so the only thing worth pointing at is where its output is going to
+/// land. Explorer's `/select,` wants a *file* to highlight, so a directory is
+/// opened directly instead.
+pub(crate) fn reveal_path(path: &Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut cmd = std::process::Command::new("explorer");
+        if path.is_dir() {
+            cmd.raw_arg(format!("\"{}\"", path.display()));
+        } else {
+            cmd.raw_arg(format!("/select,\"{}\"", path.display()));
+        }
+        let _ = cmd.spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let target = if path.is_dir() { Some(path) } else { path.parent() };
+        if let Some(dir) = target {
             let _ = std::process::Command::new("xdg-open").arg(dir).spawn();
         }
     }

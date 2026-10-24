@@ -184,7 +184,8 @@ pub fn sidebar(
     visited: &[Step],
     reachable: bool,
     mode: Mode,
-    queue: QueueBadge,
+    queue: &QueueBadge,
+    current_is_queue: bool,
 ) -> SidebarAction {
     let mut clicked = None;
     let mut about = false;
@@ -269,25 +270,88 @@ pub fn sidebar(
     // numbered, so they read as "not part of the sequence" rather than as
     // last steps.
     //
-    // The queue row appears only once there is something in it. An empty
+    // The queue card appears only once there is something in it. An empty
     // queue is not a thing a first-time user needs to be told about, and the
     // Export page offers the way in when it becomes relevant.
     if queue.total > 0 {
-        ui.add_space(14.0);
+        ui.add_space(18.0);
         ui.horizontal(|ui| {
-            ui.add_space(16.0);
-            let label = if queue.running {
-                match queue.total {
-                    1 => "Export queue — 1 running".to_string(),
-                    n => format!("Export queue — 1 running, {} waiting", n - 1),
+            ui.add_space(12.0);
+            let card = egui::Frame::NONE
+                .fill(if current_is_queue { theme::panel() } else { theme::panel2() })
+                .corner_radius(theme::RADIUS_SMALL)
+                .inner_margin(egui::Margin::symmetric(12, 10))
+                .stroke(egui::Stroke::new(
+                    1.0,
+                    if current_is_queue { theme::accent() } else { theme::line() },
+                ));
+
+            card.show(ui, |ui| {
+                ui.set_width(157.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("Queue")
+                            .size(theme::FONT_BODY)
+                            .color(theme::text()),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // The badge counts what is still to come, which is
+                        // what someone glancing at the sidebar wants to know —
+                        // not how many have been done.
+                        let (text, fill) = if queue.failed > 0 {
+                            (format!("{} failed", queue.failed), theme::fix())
+                        } else {
+                            (format!("{} left", queue.left), theme::accent())
+                        };
+                        egui::Frame::NONE
+                            .fill(fill)
+                            .corner_radius(9.0)
+                            .inner_margin(egui::Margin::symmetric(7, 2))
+                            .show(ui, |ui| {
+                                ui.label(
+                                    RichText::new(text)
+                                        .size(theme::FONT_TINY)
+                                        .color(egui::Color32::WHITE),
+                                );
+                            });
+                    });
+                });
+
+                if queue.running {
+                    ui.add_space(7.0);
+                    ui.add(
+                        egui::ProgressBar::new(queue.fraction)
+                            .desired_height(4.0)
+                            .corner_radius(2.0),
+                    );
                 }
-            } else {
-                format!("Export queue — {} waiting", queue.total)
-            };
-            if theme::link(ui, &label).clicked() {
-                open_queue = true;
-            }
+                ui.add_space(5.0);
+                ui.label(
+                    RichText::new(&queue.status)
+                        .size(theme::FONT_TINY)
+                        .color(theme::faint()),
+                );
+            });
         });
+
+        // The whole card is the target, which is a kinder hit area than a
+        // line of link text for the older users the brief has in mind.
+        let rect = ui.min_rect();
+        let id = ui.id().with("queue-card");
+        let response = ui.interact(
+            egui::Rect::from_min_max(
+                egui::pos2(rect.left() + 12.0, rect.bottom() - 62.0),
+                egui::pos2(rect.left() + 193.0, rect.bottom()),
+            ),
+            id,
+            egui::Sense::click(),
+        );
+        if response.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        if response.clicked() {
+            open_queue = true;
+        }
     }
 
     ui.add_space(14.0);
@@ -309,12 +373,22 @@ pub fn sidebar(
     }
 }
 
-/// What the sidebar needs to know about the queue to label its row.
-#[derive(Debug, Clone, Copy, Default)]
+/// What the sidebar needs to draw its queue card.
+///
+/// Passed in rather than read from `App` because `nav` draws the sidebar
+/// before the page and must not depend on the rest of the interface.
+#[derive(Debug, Clone, Default)]
 pub struct QueueBadge {
-    /// Jobs waiting plus the one running, if any.
+    /// Everything the queue knows about: done, running and waiting.
     pub total: usize,
+    /// Still to come — the running job plus whatever is behind it.
+    pub left: usize,
+    pub failed: usize,
     pub running: bool,
+    /// Progress across the whole batch, 0..1.
+    pub fraction: f32,
+    /// One short line: "Running · 3 of 7" or "Finished".
+    pub status: String,
 }
 
 struct RowSpec<'a> {

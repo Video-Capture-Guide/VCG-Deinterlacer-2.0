@@ -324,6 +324,16 @@ enum ExportMsg {
 }
 
 impl ExportJob {
+    /// `ctx` is the egui context, so the worker can wake the interface.
+    ///
+    /// Without it the only thing collecting results is whatever repaint the
+    /// window happens to be doing, and an idle window does none. A render
+    /// that ends overnight then sits in the channel until morning, taking the
+    /// rest of the queue down with it — which is exactly what happened. A
+    /// timer is not enough on its own either: Windows throttles redraws for a
+    /// minimised or occluded window, which is the state an unattended batch
+    /// is in. Waking the loop from the thread that has the news is the only
+    /// version that does not depend on someone watching.
     #[allow(clippy::too_many_arguments)]
     pub fn start(
         tools: ToolPaths,
@@ -334,6 +344,7 @@ impl ExportJob {
         source_seconds: f64,
         source_fps: f64,
         comparison: bool,
+        ctx: eframe::egui::Context,
     ) -> Self {
         let (tx, rx) = mpsc::channel();
         let thread_file = file.clone();
@@ -341,9 +352,11 @@ impl ExportJob {
         let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let thread_cancel = cancel.clone();
 
+        let progress_ctx = ctx.clone();
         std::thread::spawn(move || {
             let mut report = |phase: vcg_tools::encode::Phase| {
                 let _ = tx.send(ExportMsg::Progress(phase));
+                progress_ctx.request_repaint();
             };
             let result = vcg_tools::encode::run(
                 vcg_tools::encode::Request {
@@ -360,6 +373,9 @@ impl ExportJob {
                 Some(&mut report),
             );
             let _ = tx.send(ExportMsg::Done(Box::new(result)));
+            // The important one: this is what lets the next job in the queue
+            // start without anybody being at the machine.
+            ctx.request_repaint();
         });
 
         Self {
@@ -637,5 +653,81 @@ impl SettingPreviewJob {
             }
             Err(mpsc::TryRecvError::Empty) => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An export that finishes while nobody is at the machine must still be
+    /// collected.
+    ///
+    /// This is the regression test for the queue stalling overnight. egui
+    /// drains the worker channels inside `ui()`, and `ui()` only runs when
+    /// something asks for a repaint. Nothing did, so a render finished into a
+    /// channel that was not being read: the job was never marked done and the
+    /// next never started. Three tapes were queued at bedtime; the third had
+    /// not begun by morning, and the log read `Took 693m 46s` against
+    /// `elapsed=0:37:17` of actual encoding — eleven hours of sitting
+    /// finished but uncollected.
+    ///
+    /// **The loop below is the point.** It models an idle window honestly: it
+    /// polls the job *only* when egui has asked for a repaint, and otherwise
+    /// sleeps, exactly as a real window with no mouse moving over it does.
+    /// Counting repaints instead would prove nothing, because egui coalesces
+    /// them — once a repaint is pending, further requests are no-ops until a
+    /// frame runs, so the progress wake near the start of the export hides a
+    /// missing wake at the end.
+    ///
+    /// The export is made to fail at once — the tools do not exist — so this
+    /// runs in a fraction of a second. What is asserted is not that the
+    /// export worked but that its ending was *heard*.
+    #[test]
+    fn an_export_that_ends_while_nobody_is_watching_is_still_collected() {
+        let ctx = eframe::egui::Context::default();
+
+        let mut job = ExportJob::start(
+            ToolPaths::discover(Some(std::path::Path::new(r"Z:\no\such\deps"))),
+            vcg_core::vpy::DepsPaths::new(r"Z:\no\such\deps"),
+            vcg_core::config::Config::default(),
+            PathBuf::from(r"Z:\no\such\input.avi"),
+            PathBuf::from(r"Z:\no\such\output.mov"),
+            1.0,
+            25.0,
+            false,
+            ctx.clone(),
+        );
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let mut collected = None;
+        while collected.is_none() && std::time::Instant::now() < deadline {
+            // Running a frame both clears any pending repaint and reports
+            // whether one is wanted again — the same signal the real event
+            // loop acts on.
+            ctx.begin_pass(Default::default());
+            let mut out = ctx.end_pass();
+            // Nothing here paints, so the font atlas egui hands back has no
+            // renderer to go to; it has to be discarded explicitly or its
+            // Drop panics.
+            out.textures_delta.clear();
+            let wanted = out
+                .viewport_output
+                .values()
+                .any(|v| v.repaint_delay.is_zero());
+
+            if wanted {
+                collected = job.poll();
+            } else {
+                // Idle: nobody is touching anything.
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+        }
+
+        assert!(
+            collected.is_some(),
+            "the export finished but an idle window never woke to collect it, \
+             so the next job in the queue would never have started"
+        );
     }
 }

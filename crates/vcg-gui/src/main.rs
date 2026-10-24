@@ -345,8 +345,17 @@ pub struct App {
     /// Jobs that have ended, newest last. Shown in the queue panel so an
     /// unattended batch can be read back.
     pub queue_history: Vec<queue::Finished>,
-    /// Whether the queue panel is open.
+    /// Whether the queue page is open in place of the wizard.
     pub show_queue: bool,
+    /// Let the running video finish, then hold the rest of the queue.
+    ///
+    /// The one batch-level control that needs nothing new behind it: the
+    /// completion path simply declines to start the next job. Nothing is
+    /// cancelled and nothing loses its place.
+    pub stop_after_current: bool,
+    /// A clone of the egui context, so worker threads can wake the frame
+    /// loop when they finish. Set on the first frame.
+    repaint_ctx: Option<egui::Context>,
     /// What the queue last did, shown as a line in the panel so an action
     /// with no visible effect still says something happened.
     pub queue_notice: Option<String>,
@@ -551,6 +560,8 @@ impl App {
             queue: queue::ExportQueue::default(),
             queue_history: Vec::new(),
             show_queue: false,
+            stop_after_current: false,
+            repaint_ctx: None,
             queue_notice: None,
             export_done: None,
             crop_sides_base: None,
@@ -1476,15 +1487,30 @@ impl App {
     }
 
     /// Begin running `job`. Does nothing if an export is already going.
-    fn start_job(&mut self, job: queue::QueuedJob) {
+    ///
+    /// Needs the egui context so the worker can wake the interface when it
+    /// finishes; without that the queue only advances while someone is
+    /// moving the mouse. Refuses to start rather than run a job whose
+    /// completion could go unheard.
+    fn start_job(&mut self, job: queue::QueuedJob) -> Result<(), String> {
         if self.export_job.is_some() {
-            return;
+            return Err("another export is already running".to_string());
         }
+        // Each of these is reported rather than swallowed. A job the queue
+        // has already taken off the list and then cannot start would
+        // otherwise disappear without trace, which is a worse failure than
+        // the one being guarded against.
+        let Some(ctx) = self.repaint_ctx.clone() else {
+            return Err("the window was not ready".to_string());
+        };
         let Some(output) = Self::output_for(&job) else {
-            return;
+            return Err(format!(
+                "there is nowhere to write the output for {}",
+                job.source_name()
+            ));
         };
         let Some(vs) = self.tools.vs_deps_dir.clone() else {
-            return;
+            return Err("the bundled VapourSynth files were not found".to_string());
         };
         // Only the file on screen loses its finished summary. When the queue
         // starts the *next* job on its own, the user is very often still
@@ -1503,8 +1529,10 @@ impl App {
             job.source_seconds,
             job.source_fps,
             job.comparison,
+            ctx,
         ));
         self.current_job = Some(job);
+        Ok(())
     }
 
     fn start_export(&mut self) {
@@ -1514,7 +1542,9 @@ impl App {
         let Some(job) = self.job_from_current_state() else {
             return;
         };
-        self.start_job(job);
+        if let Err(why) = self.start_job(job) {
+            self.export_done = Some(Err(format!("The export could not be started: {why}.")));
+        }
     }
 
     /// Add the current settings to the queue and clear the wizard for the
@@ -1533,8 +1563,10 @@ impl App {
         let name = job.source_name();
 
         if self.export_job.is_none() {
-            self.start_job(job);
-            self.queue_notice = Some(format!("{name} started."));
+            self.queue_notice = Some(match self.start_job(job) {
+                Ok(()) => format!("{name} started."),
+                Err(why) => format!("{name} could not be started: {why}."),
+            });
         } else {
             self.queue.push(job);
             let waiting = self.queue.len();
@@ -1587,6 +1619,36 @@ impl App {
         )
     }
 
+    /// Whether any worker thread still owes this frame loop an answer.
+    ///
+    /// **egui only redraws when something asks it to.** Every worker here
+    /// reports back down a channel that is drained inside `ui()`, so a result
+    /// arriving while the window sits idle is not collected until the user
+    /// next moves the mouse. For a probe that means a chip appears late. For
+    /// an export it meant the queue stopped dead: the encoder finished into a
+    /// channel nobody was reading, the job was never marked done, and the one
+    /// behind it never started. Three tapes were queued overnight and the
+    /// third had not begun by morning — the log reads `Took 693m 46s` against
+    /// `elapsed=0:37:17` of actual encoding, the gap being the hours it spent
+    /// finished but uncollected.
+    ///
+    /// Each page used to ask for its own repaints, which works only while the
+    /// page owning the job is the page on screen. The export queue broke that
+    /// assumption on purpose: its whole point is to leave a render going
+    /// while the user works somewhere else. So the loop is now kept alive
+    /// from one place for as long as *any* worker is outstanding, rather than
+    /// by whichever view happens to be drawn.
+    fn background_work_pending(&self) -> bool {
+        self.export_job.is_some()
+            || self.job.is_some()
+            || self.container_job.is_some()
+            || self.preview_job.is_some()
+            || self.crop_frame_job.is_some()
+            || self.trim_job.is_some()
+            || self.setting_preview_job.is_some()
+            || self.update_rx.is_some()
+    }
+
     /// Whether the wizard is showing the job that is rendering, and so must
     /// not be edited.
     ///
@@ -1599,6 +1661,90 @@ impl App {
         self.file.is_some() && self.showing_running_job()
     }
 
+    /// What the sidebar's queue card should say.
+    fn queue_badge(&self) -> nav::QueueBadge {
+        let done = self.queue_history.iter().filter(|f| f.outcome.is_ok()).count();
+        let failed = self.queue_history.len() - done;
+        let running = self.export_job.is_some();
+        let left = self.queue.len() + usize::from(running);
+        let total = self.queue_history.len() + left;
+
+        let status = if running {
+            if self.stop_after_current {
+                "Stopping after this one".to_string()
+            } else {
+                format!("Running · {} of {}", done + 1, total)
+            }
+        } else if left > 0 {
+            format!("Holding · {left} waiting")
+        } else if failed > 0 {
+            "Finished · needs attention".to_string()
+        } else {
+            "Finished".to_string()
+        };
+
+        let fraction = if total == 0 {
+            0.0
+        } else {
+            (done as f32 + self.export_job.as_ref().map_or(0.0, |j| j.fraction()))
+                / total as f32
+        };
+
+        nav::QueueBadge { total, left, failed, running, fraction, status }
+    }
+
+    /// Carry out what the queue page asked for.
+    fn apply_queue_action(&mut self, action: queue::QueueAction) {
+        use queue::QueueAction as Q;
+        match action {
+            Q::Up(id) => {
+                self.queue.move_up(id);
+                self.queue_notice = None;
+            }
+            Q::Down(id) => {
+                self.queue.move_down(id);
+                self.queue_notice = None;
+            }
+            Q::Remove(id) => self.remove_queued(id),
+            Q::Duplicate(id) => self.duplicate_queued(id),
+            Q::Reveal(path) => export::reveal_path(&path),
+            Q::Open(path) => export::open_path(&path),
+            Q::AddAnother => {
+                // Leave the queue page and start the wizard on a clean sheet.
+                // The running job is untouched.
+                self.show_queue = false;
+                self.reset_for_another();
+            }
+            Q::ClearFinished => {
+                self.queue_history.clear();
+                self.queue_notice = None;
+            }
+            Q::ToggleStopAfter => {
+                self.stop_after_current = !self.stop_after_current;
+                // Turning it back off while the queue is already idle has to
+                // actually restart it, or the switch would look stuck.
+                if !self.stop_after_current {
+                    self.start_next_queued();
+                }
+            }
+            Q::Close => self.show_queue = false,
+        }
+    }
+
+    /// Queue another copy of a job that is already waiting.
+    ///
+    /// Cheaper than walking the wizard again for the same tape at slightly
+    /// different settings, which is the case the brief had in mind when it
+    /// asked for a queue at all.
+    pub fn duplicate_queued(&mut self, id: u64) {
+        let Some(job) = self.queue.items().iter().find(|j| j.id == id).cloned() else {
+            return;
+        };
+        let name = job.source_name();
+        self.queue.push(job);
+        self.queue_notice = Some(format!("{name} added again, at the end."));
+    }
+
     /// The id standing for the running job in the queue list.
     ///
     /// Running jobs are not held in `ExportQueue`, so they need an id that
@@ -1609,14 +1755,43 @@ impl App {
     }
 
     /// Start the next job if one is waiting and nothing is running.
+    ///
+    /// A job that cannot be started is recorded as failed and the queue moves
+    /// on, rather than the whole batch stopping on one bad entry. The loop
+    /// terminates because every pass removes an item.
     fn start_next_queued(&mut self) {
         if self.export_job.is_some() {
             return;
         }
-        if let Some(job) = self.queue.pop_front() {
+        // Asked to hold after the current video. The queue keeps its jobs and
+        // their order; clearing the flag starts them again.
+        if self.stop_after_current {
+            if !self.queue.is_empty() {
+                self.queue_notice = Some(format!(
+                    "Stopped after the last video. {} still waiting.",
+                    self.queue.len()
+                ));
+            }
+            return;
+        }
+        while let Some(job) = self.queue.pop_front() {
             let name = job.source_name();
-            self.start_job(job);
-            self.queue_notice = Some(format!("Started {name}."));
+            match self.start_job(job) {
+                Ok(()) => {
+                    self.queue_notice = Some(format!("Started {name}."));
+                    return;
+                }
+                Err(why) => {
+                    self.queue_history.push(queue::Finished {
+                        source_name: name.clone(),
+                        outcome: Err(format!("could not be started: {why}")),
+                        took: 0.0,
+                        bytes: 0,
+                        source_seconds: 0.0,
+                    });
+                    self.queue_notice = Some(format!("{name} could not be started: {why}."));
+                }
+            }
         }
     }
 
@@ -1780,10 +1955,22 @@ impl eframe::App for App {
         self.poll_payload_install();
 
         let ctx = ui.ctx().clone();
+        // Kept so background workers can wake the loop. Cheap: an
+        // `egui::Context` is a handle, and this is the same one every frame.
+        if self.repaint_ctx.is_none() {
+            self.repaint_ctx = Some(ctx.clone());
+        }
         // Cheap, and the only way the window follows the system theme while
         // it is open rather than only at startup.
         theme::apply_with(&ctx, self.theme_choice, self.text_size);
         self.take_dropped_files(&ctx);
+
+        // Before anything is polled: a worker reporting back while the
+        // window is idle would otherwise go unheard until the user
+        // touched the mouse. See `background_work_pending`.
+        if self.background_work_pending() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        }
 
         if self.needs_file_probe {
             self.start_container_probe();
@@ -1912,6 +2099,9 @@ impl eframe::App for App {
                         Ok(s) => Ok(s.output.clone()),
                         Err(why) => Err(why.clone()),
                     },
+                    took,
+                    bytes: summary.as_ref().map(|s| s.bytes).unwrap_or(0),
+                    source_seconds: j.source_seconds,
                 });
             }
 
@@ -1996,10 +2186,7 @@ impl eframe::App for App {
             .resizable(false)
             .frame(egui::Frame::NONE.fill(theme::sidebar()))
             .show(ui, |ui| {
-                let badge = nav::QueueBadge {
-                    total: self.queue.len() + usize::from(self.export_job.is_some()),
-                    running: self.export_job.is_some(),
-                };
+                let badge = self.queue_badge();
                 // While the user is watching their own render, the wizard
                 // behind it is locked: edits there would apply to nothing,
                 // which is the confusion the brief asked us to remove. Choose
@@ -2007,7 +2194,16 @@ impl eframe::App for App {
                 // another tape is what unlocks it — the running job carries
                 // on regardless.
                 let reachable = has_file && !self.wizard_locked();
-                match nav::sidebar(ui, self.step, &self.visited, reachable, self.mode, badge) {
+                let on_queue = self.show_queue;
+                match nav::sidebar(
+                    ui,
+                    self.step,
+                    &self.visited,
+                    reachable,
+                    self.mode,
+                    &badge,
+                    on_queue,
+                ) {
                     nav::SidebarAction::Goto(step) => self.visit(step),
                     nav::SidebarAction::OpenAbout => self.show_about = true,
                     nav::SidebarAction::OpenQueue => self.show_queue = true,
@@ -2016,6 +2212,9 @@ impl eframe::App for App {
             });
 
         let mut action = pages::PageAction::default();
+        // Filled by the queue page, applied once the borrow of `self` inside
+        // the panel closure has ended.
+        let mut queued: Option<queue::QueueAction> = None;
 
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(theme::bg()))
@@ -2033,9 +2232,14 @@ impl eframe::App for App {
                                 bottom: 14,
                             }),
                     )
-                    .show_separator_line(true)
+                    .show_separator_line(!self.show_queue)
                     .show(ui, |ui| {
-                        if let Some(step) = self.footer(ui) {
+                        // The queue is not a step in the wizard, so it gets no
+                        // Back/Next bar — those would navigate a sequence the
+                        // page is not part of.
+                        if !self.show_queue
+                            && let Some(step) = self.footer(ui)
+                        {
                             action.go_to = Some(step);
                         }
                     });
@@ -2062,6 +2266,13 @@ impl eframe::App for App {
                                 bottom: 26,
                             })
                             .show(ui, |ui| {
+                                // The queue page is a table of jobs, not prose,
+                                // and wants the window rather than a reading
+                                // column — the cramped box was the complaint.
+                                if self.show_queue {
+                                    queued = queue::queue_page(ui, self);
+                                    return pages::PageAction::default();
+                                }
                                 // Long lines are hard to read; cap the column.
                                 ui.set_max_width(980.0);
                                 match self.step {
@@ -2102,7 +2313,6 @@ impl eframe::App for App {
         // Drawn last so it sits over the sidebar and the footer as well as
         // the page; a modal that only covers the body is not modal.
         about::about_modal(ui.ctx(), self);
-        queue::queue_modal(ui.ctx(), self);
 
         // ── Apply everything the frame asked for ────────────────────────────
         let pending = std::mem::take(&mut *self.pending.borrow_mut());
@@ -2128,6 +2338,9 @@ impl eframe::App for App {
         }
         if action.start_probe {
             self.start_probe();
+        }
+        if let Some(q) = queued {
+            self.apply_queue_action(q);
         }
         if action.another_video {
             self.reset_for_another();
