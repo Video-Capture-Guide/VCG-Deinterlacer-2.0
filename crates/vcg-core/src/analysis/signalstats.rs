@@ -26,7 +26,16 @@ pub struct SignalStatsRun {
     pub satavg: Vec<f64>,
     /// Inter-frame luma difference — reflects both motion and noise.
     pub ydif: Vec<f64>,
-    /// Temporal outliers — the noise-specific indicator.
+    /// Inter-frame U difference. Same motion contamination as `ydif`.
+    pub udif: Vec<f64>,
+    /// Inter-frame V difference.
+    pub vdif: Vec<f64>,
+    /// Temporal outliers — the noise-specific indicator, and luma-only.
+    ///
+    /// Measured: adding chroma noise at sigma 5, 10, 20 and 40 to a real
+    /// capture leaves TOUT at 0.0017 throughout, while sigma 40 on the *luma*
+    /// moves it to 0.0048. TOUT cannot see chroma noise at all, which is why
+    /// `classify::noise` needs `udif`/`vdif` to judge chroma.
     pub tout: Vec<f64>,
     pub uhigh: Vec<f64>,
     pub ulow: Vec<f64>,
@@ -67,6 +76,10 @@ impl SignalStatsRun {
                 push_float(&mut r.vavg, line);
             } else if line.contains("YDIF") {
                 push_float(&mut r.ydif, line);
+            } else if line.contains("UDIF") {
+                push_float(&mut r.udif, line);
+            } else if line.contains("VDIF") {
+                push_float(&mut r.vdif, line);
             } else if line.contains("TOUT") {
                 push_float(&mut r.tout, line);
             } else if line.contains("UHIGH") {

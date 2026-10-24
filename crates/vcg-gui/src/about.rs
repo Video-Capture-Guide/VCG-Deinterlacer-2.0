@@ -143,9 +143,13 @@ fn body(ui: &mut egui::Ui, app: &mut App) {
          in three dimensions — and the script picks the fastest build present: \
          CUDA on an NVIDIA card, otherwise an AVX2 build four times quicker \
          than the original, then the original, then KNLMeansCL, then \
-         SMDegrain. Only the luma is denoised; \
-         tape chroma is already soft and filtering it further costs more than \
-         it saves.",
+         SMDegrain. Luma and chroma are both denoised, in two passes: the \
+         luma with a temporal radius, the chroma spatially only and at half \
+         again the luma strength. Tape colour is recorded as a subcarrier \
+         down at 629 kHz and arrives soft and noisy both — the softness is a \
+         reason to filter it harder, not to leave it alone, since there is \
+         little detail there to lose. Skipping temporal matching on the \
+         chroma is what stops the colour smearing.",
     );
     ui.add_space(16.0);
 

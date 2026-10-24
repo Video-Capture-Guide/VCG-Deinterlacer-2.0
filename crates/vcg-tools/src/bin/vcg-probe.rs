@@ -368,7 +368,7 @@ fn print_report(r: &Report, elapsed: std::time::Duration) {
         Some(n) => row(
             "noise",
             format!(
-                "{} (TOUT {:.4}, YDIF {:.1}, {} samples){} -> denoise {}",
+                "{} (TOUT {:.4}, YDIF {:.1}, chroma {:.2} ratio {:.2}, {} samples){} -> denoise {}",
                 match n.noise_level {
                     NoiseVerdict::Clean => "clean",
                     NoiseVerdict::Light => "light",
@@ -377,6 +377,8 @@ fn print_report(r: &Report, elapsed: std::time::Duration) {
                 },
                 n.avg_variance,
                 n.avg_diff,
+                n.avg_chroma_diff,
+                n.chroma_ratio,
                 n.samples_analyzed,
                 if n.analyzed { "" } else { " [too few samples to trust]" },
                 rec(n.recommendation),

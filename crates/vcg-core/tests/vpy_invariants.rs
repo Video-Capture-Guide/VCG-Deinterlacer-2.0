@@ -1097,3 +1097,78 @@ fn the_preview_converts_the_same_formats_the_export_does() {
         );
     }
 }
+
+// ── Chroma denoising ────────────────────────────────────────────────────────
+
+/// A config with denoising on at the given strength.
+fn denoised(level: vcg_core::config::NoiseLevel) -> String {
+    script(&Config { noise_level: level, ..Default::default() })
+}
+
+#[test]
+fn chroma_is_denoised_spatially_while_luma_gets_a_temporal_radius() {
+    let s = denoised(vcg_core::config::NoiseLevel::Moderate);
+
+    // Luma: sigma 3.0 with a temporal radius.
+    assert!(
+        s.contains("sigma=[3.0, 0, 0], radius=1"),
+        "luma pass missing its temporal radius:\n{s}"
+    );
+    // Chroma: half again the sigma, and radius=0 — temporal block matching on
+    // soft noisy chroma is what smears colour.
+    assert!(
+        s.contains("sigma=[0, 4.5, 4.5], radius=0"),
+        "chroma pass missing or not spatial-only:\n{s}"
+    );
+    // The two passes are recombined rather than one overwriting the other.
+    assert!(
+        s.contains("ShufflePlanes([_vcg_y, _vcg_c, _vcg_c]"),
+        "the luma and chroma passes are never merged:\n{s}"
+    );
+}
+
+#[test]
+fn heavy_denoising_scales_both_planes() {
+    let s = denoised(vcg_core::config::NoiseLevel::Heavy);
+    assert!(s.contains("sigma=[6.0, 0, 0], radius=2"), "{s}");
+    assert!(s.contains("sigma=[0, 9.0, 9.0], radius=0"), "{s}");
+}
+
+#[test]
+fn the_knlmeanscl_fallback_never_uses_a_channels_mode_that_breaks_on_420() {
+    // Measured against the bundled plugin: on a 4:2:0 clip channels="auto"
+    // silently resolves to "Y" and never touches chroma, and channels="YUV"
+    // is a hard crash. A separate "UV" pass is the only working form.
+    let s = denoised(vcg_core::config::NoiseLevel::Moderate);
+    assert!(!s.contains(r#"channels="auto""#), "auto is a no-op on 4:2:0:\n{s}");
+    assert!(!s.contains(r#"channels="YUV""#), "YUV crashes on 4:2:0:\n{s}");
+    assert!(s.contains(r#"channels="Y""#), "{s}");
+    assert!(s.contains(r#"channels="UV""#), "{s}");
+    // The chroma pass is spatial-only here too.
+    assert!(s.contains(r#"d=0, a=2, s=4, h=1.8, channels="UV""#), "{s}");
+}
+
+#[test]
+fn the_bundled_bm3d_fallback_stays_luma_only() {
+    // The original VapourSynth-BM3D refuses a subsampled clip outright when
+    // chroma is processed ("convert it to YUV444 or RGB first"), and it raises
+    // vs.Error, which the surrounding `except AttributeError` would not catch.
+    let s = denoised(vcg_core::config::NoiseLevel::Moderate);
+    for call in ["core.bm3d.Basic(", "core.bm3d.Final("] {
+        let line = s
+            .lines()
+            .find(|l| l.contains(call))
+            .unwrap_or_else(|| panic!("{call} not found in:\n{s}"));
+        assert!(
+            line.contains("sigma=[3.0, 0, 0]"),
+            "{call} must stay luma-only, got: {line}"
+        );
+    }
+}
+
+#[test]
+fn denoising_off_emits_no_denoise_at_all() {
+    let s = denoised(vcg_core::config::NoiseLevel::None);
+    assert!(!s.contains("BM3Dv2"), "{s}");
+    assert!(!s.contains("KNLMeansCL"), "{s}");
+}

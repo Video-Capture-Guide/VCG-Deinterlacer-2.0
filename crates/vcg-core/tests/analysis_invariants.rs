@@ -714,3 +714,88 @@ fn too_few_edges_reports_clean_rather_than_guessing() {
     assert_eq!(v.halo_ratio, 0.0);
     assert!(v.analyzed, "edges were seen, just not enough of them");
 }
+
+// ── Chroma noise ───────────────────────────────────────────────────────────
+//
+// The numbers below are the measured calibration set: a real VHS capture with
+// known chroma noise added, and five real captures with none. See
+// `classify::chroma_noise`.
+
+#[test]
+fn chroma_noise_is_detected_when_the_luma_looks_clean() {
+    // TOUT cannot see chroma noise at all — measured, it does not move from
+    // sigma 0 to sigma 40 — so this case used to be reported as clean.
+    let at = |ydif: f64, udif: f64, vdif: f64| {
+        noise(&[stats(&[
+            ("TOUT", 0.001),
+            ("YDIF", ydif),
+            ("UDIF", udif),
+            ("VDIF", vdif),
+        ])])
+    };
+
+    // As captured: chroma 0.83, ratio 0.14.
+    assert_eq!(at(6.01, 0.95, 0.71).noise_level, NoiseVerdict::Clean);
+
+    // Added chroma sigma 5: chroma 3.01, ratio 0.50.
+    let mild = at(6.01, 3.2, 2.82);
+    assert_eq!(mild.noise_level, NoiseVerdict::Moderate);
+    assert_eq!(mild.trigger, NoiseTrigger::Chroma);
+    // The luma verdict is kept alongside, and still says clean.
+    assert_eq!(mild.luma_level, NoiseVerdict::Clean);
+
+    // Added chroma sigma 10: chroma 6.18, ratio 1.03.
+    let strong = at(6.01, 6.4, 5.96);
+    assert_eq!(strong.noise_level, NoiseVerdict::Heavy);
+    assert_eq!(strong.trigger, NoiseTrigger::Chroma);
+    assert_eq!(strong.recommendation, Recommendation::Heavy);
+}
+
+#[test]
+fn a_busy_clean_clip_is_not_mistaken_for_chroma_noise() {
+    // The measured trap: a restored PAL DV clip full of movement has a chroma
+    // difference of 5.56 — higher than the genuinely noisy sigma-5 case —
+    // purely from motion. Only the ratio tells them apart, which is why the
+    // classifier needs both a ratio and an absolute floor.
+    let busy = noise(&[stats(&[
+        ("TOUT", 0.0189),
+        ("YDIF", 31.57),
+        ("UDIF", 5.91),
+        ("VDIF", 5.20),
+    ])]);
+    assert_eq!(busy.chroma_level, NoiseVerdict::Clean);
+    assert!(busy.avg_chroma_diff > 4.0, "the raw figure alone would have tripped");
+    assert!(busy.chroma_ratio < 0.45);
+}
+
+#[test]
+fn luma_noise_does_not_leak_into_the_chroma_verdict() {
+    // Adding luma noise pushes the ratio *down* (measured: 0.031 at sigma 40),
+    // so a grainy-luma tape can never false-positive as chroma noise.
+    let grainy = noise(&[stats(&[
+        ("TOUT", 0.0048),
+        ("YDIF", 27.14),
+        ("UDIF", 0.95),
+        ("VDIF", 0.71),
+    ])]);
+    assert_eq!(grainy.chroma_level, NoiseVerdict::Clean);
+    assert!(grainy.chroma_ratio < 0.1);
+}
+
+#[test]
+fn a_still_frame_does_not_divide_by_zero_into_a_heavy_verdict() {
+    // No luma movement at all would make the ratio infinite and call
+    // everything heavy. The guard turns that into a clean verdict instead.
+    let still = noise(&[stats(&[("TOUT", 0.0), ("YDIF", 0.0), ("UDIF", 9.0), ("VDIF", 9.0)])]);
+    assert_eq!(still.chroma_ratio, 0.0);
+    assert_eq!(still.chroma_level, NoiseVerdict::Clean);
+}
+
+#[test]
+fn udif_and_vdif_are_parsed() {
+    let r = stats(&[("UDIF", 1.25), ("VDIF", 0.75), ("YDIF", 6.0)]);
+    assert_eq!(r.udif, vec![1.25]);
+    assert_eq!(r.vdif, vec![0.75]);
+    // UDIF must not be mistaken for YDIF by the substring match.
+    assert_eq!(r.ydif, vec![6.0]);
+}

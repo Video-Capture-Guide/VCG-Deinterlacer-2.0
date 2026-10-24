@@ -1051,12 +1051,24 @@ fn denoise(s: &mut Script, config: &Config) {
         NoiseLevel::Moderate => (3.0_f64, 1, 1, 1.2_f64, 1, 300, "moderate"),
         NoiseLevel::Heavy => (6.0_f64, 2, 2, 2.0_f64, 2, 400, "heavy"),
     };
+    // Chroma takes half again the luma sigma. Tape chroma is soft, which is
+    // the reason to filter it harder, not more gently: softness means there is
+    // little detail there to lose, while the colour-under subcarrier the noise
+    // rides on is as noisy as ever.
+    let chroma_sigma = sigma * 1.5;
+    let knlm_chroma_h = knlm_h * 1.5;
 
     s.push(format!(
         "# Temporal denoising ({label}) — BM3D, fastest build available."
     ));
     s.push("# sigma is on the 0-255 scale for every BM3D variant, whatever the");
-    s.push("# clip's bit depth. Luma only; tape chroma is already soft.");
+    s.push("# clip's bit depth.");
+    s.push("#");
+    s.push("# Luma and chroma are denoised in two separate passes because BM3D");
+    s.push("# takes one `radius` for the whole call, and chroma wants radius=0:");
+    s.push("# block matching across frames on soft, noisy chroma is unreliable");
+    s.push("# and smears colour. Two passes are also *cheaper* than one — +15%");
+    s.push("# over luma-only here, against +57% for one call at radius>0.");
     s.push("_vcg_fmt = clip.format");
     s.push("try:");
     s.push(
@@ -1064,31 +1076,59 @@ fn denoise(s: &mut Script, config: &Config) {
     );
     s.push("    try:");
     s.push(format!(
-        "        _vcg_dn = core.bm3dcuda.BM3Dv2(_vcg_f, sigma=[{sigma:.1}, 0, 0], radius={radius})"
+        "        _vcg_y = core.bm3dcuda.BM3Dv2(_vcg_f, sigma=[{sigma:.1}, 0, 0], radius={radius})"
+    ));
+    s.push(format!(
+        "        _vcg_c = core.bm3dcuda.BM3Dv2(_vcg_f, sigma=[0, {chroma_sigma:.1}, {chroma_sigma:.1}], radius=0)"
     ));
     // A missing driver surfaces when the filter is created, not as an
     // AttributeError, so this arm has to be broad.
     s.push("    except Exception:");
     s.push(format!(
-        "        _vcg_dn = core.bm3dcpu.BM3Dv2(_vcg_f, sigma=[{sigma:.1}, 0, 0], radius={radius})"
+        "        _vcg_y = core.bm3dcpu.BM3Dv2(_vcg_f, sigma=[{sigma:.1}, 0, 0], radius={radius})"
     ));
+    s.push(format!(
+        "        _vcg_c = core.bm3dcpu.BM3Dv2(_vcg_f, sigma=[0, {chroma_sigma:.1}, {chroma_sigma:.1}], radius=0)"
+    ));
+    // Subsampled chroma needs no 4:4:4 detour here: with the default
+    // chroma=0 these plugins denoise each plane independently. (chroma=1 is
+    // the joint CBM3D mode, and *that* is what would demand YUV444.)
+    s.push("    _vcg_dn = core.std.ShufflePlanes([_vcg_y, _vcg_c, _vcg_c], planes=[0, 1, 2], colorfamily=vs.YUV)");
     s.push("    clip = core.resize.Point(_vcg_dn, format=_vcg_fmt.id)");
     s.push("except AttributeError:");
     s.push("    try:");
+    // The bundled original refuses outright: "sub-sampled format is not
+    // supported when chroma is processed, convert it to YUV444 or RGB first".
+    // So this arm stays luma-only and hands chroma to KNLMeansCL below.
+    s.push("        # The bundled BM3D cannot process chroma on a subsampled");
+    s.push("        # clip at all, so this arm denoises luma and leaves the");
+    s.push("        # colour planes to the KNLMeansCL pass that follows.");
     s.push(format!(
         "        _vcg_ref = core.bm3d.Basic(clip, sigma=[{sigma:.1}, 0, 0])"
     ));
     s.push(format!(
         "        clip = core.bm3d.Final(clip, ref=_vcg_ref, sigma=[{sigma:.1}, 0, 0])"
     ));
+    s.push("        try:");
+    s.push(format!(
+        "            clip = core.knlm.KNLMeansCL(clip, d=0, a=2, s=4, h={knlm_chroma_h:.1}, channels=\"UV\")"
+    ));
+    s.push("        except AttributeError:");
+    s.push("            pass  # no KNLMeansCL — luma-only denoise");
     s.push("    except AttributeError:");
     s.push("        try:");
+    // channels="auto" is NOT the answer here: on a 4:2:0 clip it resolves to
+    // "Y" and never touches chroma, and channels="YUV" is a hard crash on
+    // anything but 4:4:4. A second "UV" pass is the only working form.
     s.push(format!(
         "            clip = core.knlm.KNLMeansCL(clip, d={knlm_d}, a=2, s=4, h={knlm_h}, channels=\"Y\")"
     ));
+    s.push(format!(
+        "            clip = core.knlm.KNLMeansCL(clip, d=0, a=2, s=4, h={knlm_chroma_h:.1}, channels=\"UV\")"
+    ));
     s.push("        except AttributeError:");
     s.push(format!(
-        "            clip = haf.SMDegrain(clip, tr={sm_tr}, thSAD={sm_thsad})  # last resort"
+        "            clip = haf.SMDegrain(clip, tr={sm_tr}, thSAD={sm_thsad}, plane=4)  # last resort; plane=4 (all planes) is the default"
     ));
     s.gap();
 }

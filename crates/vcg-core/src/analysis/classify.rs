@@ -166,15 +166,18 @@ pub enum NoiseVerdict {
 /// Which metric crossed the threshold, so the UI can show the right number.
 ///
 /// A quiet tape with heavy motion is classified via YDIF while its TOUT score
-/// stays low.
+/// stays low. `Chroma` means the luma looked clean and only the colour planes
+/// were noisy — the case the luma-only classifier used to miss entirely.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoiseTrigger {
     Tout,
     Ydif,
+    Chroma,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NoiseAnalysis {
+    /// The overall verdict: the worse of the luma and chroma verdicts.
     pub noise_level: NoiseVerdict,
     /// The filter strength to recommend. Note Light recommends Moderate.
     pub recommendation: super::Recommendation,
@@ -182,9 +185,66 @@ pub struct NoiseAnalysis {
     pub avg_diff: f64,
     pub std_diff: f64,
     pub avg_variance: f64,
+    /// What the luma metrics alone say — what this probe used to report.
+    pub luma_level: NoiseVerdict,
+    /// Mean of UDIF and VDIF: inter-frame difference on the colour planes.
+    pub avg_chroma_diff: f64,
+    /// `avg_chroma_diff / avg_diff`, the motion-cancelling ratio. See
+    /// `chroma_noise`.
+    pub chroma_ratio: f64,
+    pub chroma_level: NoiseVerdict,
     pub samples_analyzed: usize,
     /// At least three good samples were collected.
     pub analyzed: bool,
+}
+
+/// Judge the colour planes, which TOUT cannot see.
+///
+/// Calibrated 23 October 2026 by adding known chroma noise to a real VHS
+/// capture (`signalstats` over 15s, the same filter the noise probe runs):
+///
+/// | added chroma sigma | chroma diff | ratio |
+/// |---|---|---|
+/// | none (as captured) | 0.83 | 0.14 |
+/// | 5  | 3.01  | 0.50 |
+/// | 10 | 6.18  | 1.03 |
+/// | 20 | 12.66 | 2.11 |
+/// | 40 | 25.70 | 4.28 |
+///
+/// Five real captures with no added noise — VHS, DV, an HD camcorder and two
+/// restored files — sit at ratios 0.13 to 0.38.
+///
+/// **Two conditions, not one, and this matters.** UDIF and VDIF carry the same
+/// motion contamination as YDIF, so the raw figure cannot stand alone: a
+/// restored PAL DV clip full of movement measures a chroma diff of 5.56, above
+/// the sigma-5 case, purely from motion. Its *ratio* is 0.18, because motion
+/// raises luma and chroma together and dividing cancels it. The ratio alone is
+/// no good either — a near-still scene has a tiny YDIF and an inflated ratio —
+/// so an absolute floor guards it. Adding luma noise pushes the ratio *down*
+/// (0.031 at sigma 40), so a grainy-luma tape cannot false-positive here.
+fn chroma_noise(avg_chroma_diff: f64, avg_diff: f64) -> (f64, NoiseVerdict) {
+    // Guard the division: a file with no luma movement at all would otherwise
+    // produce an infinite ratio and classify everything as heavy.
+    let ratio = if avg_diff > 0.01 { avg_chroma_diff / avg_diff } else { 0.0 };
+
+    let verdict = if ratio > 1.0 && avg_chroma_diff > 4.0 {
+        NoiseVerdict::Heavy
+    } else if ratio > 0.45 && avg_chroma_diff > 2.0 {
+        NoiseVerdict::Moderate
+    } else {
+        NoiseVerdict::Clean
+    };
+    (ratio, verdict)
+}
+
+/// Rank for picking the worse of two verdicts.
+fn severity(v: NoiseVerdict) -> u8 {
+    match v {
+        NoiseVerdict::Clean => 0,
+        NoiseVerdict::Light => 1,
+        NoiseVerdict::Moderate => 2,
+        NoiseVerdict::Heavy => 3,
+    }
 }
 
 pub fn noise(runs: &[SignalStatsRun]) -> NoiseAnalysis {
@@ -203,7 +263,7 @@ pub fn noise(runs: &[SignalStatsRun]) -> NoiseAnalysis {
     //
     // The TOUT cut-offs were originally far too conservative (0.06 for
     // moderate) and missed most genuine VHS tape noise.
-    let (noise_level, recommendation, trigger) = if avg_variance > 0.08 || avg_diff > 30.0 {
+    let (luma_level, recommendation, trigger) = if avg_variance > 0.08 || avg_diff > 30.0 {
         (
             NoiseVerdict::Heavy,
             super::Recommendation::Heavy,
@@ -226,6 +286,26 @@ pub fn noise(runs: &[SignalStatsRun]) -> NoiseAnalysis {
         (NoiseVerdict::Clean, super::Recommendation::None, NoiseTrigger::Tout)
     };
 
+    // Chroma is judged separately, because TOUT is blind to it and YDIF
+    // measures the wrong planes. The two verdicts then combine: the worse one
+    // wins, so a tape with clean luma and noisy colour finally gets a
+    // recommendation instead of being called clean.
+    let udif: Vec<f64> = runs.iter().flat_map(|r| r.udif.iter().copied()).collect();
+    let vdif: Vec<f64> = runs.iter().flat_map(|r| r.vdif.iter().copied()).collect();
+    let avg_chroma_diff = (mean(&udif) + mean(&vdif)) / 2.0;
+    let (chroma_ratio, chroma_level) = chroma_noise(avg_chroma_diff, avg_diff);
+
+    let (noise_level, recommendation, trigger) =
+        if severity(chroma_level) > severity(luma_level) {
+            let rec = match chroma_level {
+                NoiseVerdict::Heavy => super::Recommendation::Heavy,
+                _ => super::Recommendation::Moderate,
+            };
+            (chroma_level, rec, NoiseTrigger::Chroma)
+        } else {
+            (luma_level, recommendation, trigger)
+        };
+
     NoiseAnalysis {
         noise_level,
         recommendation,
@@ -233,6 +313,10 @@ pub fn noise(runs: &[SignalStatsRun]) -> NoiseAnalysis {
         avg_diff,
         std_diff,
         avg_variance,
+        luma_level,
+        avg_chroma_diff,
+        chroma_ratio,
+        chroma_level,
         samples_analyzed: diff.len(),
         analyzed: diff.len() >= 3,
     }

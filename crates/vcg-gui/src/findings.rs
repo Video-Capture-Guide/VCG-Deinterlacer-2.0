@@ -8,7 +8,9 @@
 //! Nothing here reads or writes thresholds. The verdicts come from
 //! `vcg_core::analysis`; this module only words them.
 
-use vcg_core::analysis::classify::{BleedLevel, ColorCast, NoiseVerdict, SaturationIssue};
+use vcg_core::analysis::classify::{
+    BleedLevel, ColorCast, NoiseTrigger, NoiseVerdict, SaturationIssue,
+};
 use vcg_core::analysis::halo::HaloLevel;
 use vcg_core::analysis::idet::Pattern;
 use vcg_core::config::{Config, LevelsAdjustment, Mode, NoiseLevel};
@@ -607,8 +609,9 @@ fn color_tint(report: &Report) -> Option<Finding> {
 fn noise(report: &Report) -> Option<Finding> {
     let n = report.noise.as_ref()?;
     let details = format!(
-        "Temporal outliers {:.4} · frame-to-frame difference {:.1} · {} frames measured",
-        n.avg_variance, n.avg_diff, n.samples_analyzed
+        "Temporal outliers {:.4} · frame-to-frame difference {:.1} · \
+         colour difference {:.2} (ratio {:.2}) · {} frames measured",
+        n.avg_variance, n.avg_diff, n.avg_chroma_diff, n.chroma_ratio, n.samples_analyzed
     );
 
     if !n.analyzed {
@@ -653,14 +656,23 @@ fn noise(report: &Report) -> Option<Finding> {
         _ => "light",
     };
 
+    // When only the colour planes are noisy the grain-and-speckle wording is
+    // wrong — the luma looked clean, and what the viewer sees is crawling
+    // colour rather than speckle.
+    let explanation = if n.trigger == NoiseTrigger::Chroma {
+        "The grey part of the picture is clean, but the colour is noisy — \
+         patches of colour shimmer and crawl from frame to frame."
+    } else {
+        "The picture has visible tape grain and speckle that moves \
+         from frame to frame."
+    };
+
     Some(Finding {
         check: Check::Noise,
         title: "Tape noise".into(),
         tag: Tag::FixRecommended,
         tag_text: Some(format!("{} — fix recommended", capitalise(severity))),
-        explanation: "The picture has visible tape grain and speckle that moves \
-                      from frame to frame."
-            .into(),
+        explanation: explanation.into(),
         action: Some(format!(
             "apply {} noise reduction",
             if severity == "heavy" { "heavy" } else { "moderate" }

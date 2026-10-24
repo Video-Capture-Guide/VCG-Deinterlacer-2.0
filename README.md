@@ -145,8 +145,13 @@ none. When the Noise step is enabled it runs *after* the deinterlacer, on the
 progressive frames. BM3D is the tool, and the script picks the fastest build
 present on your machine — CUDA on an NVIDIA card, otherwise an AVX2 build about
 four times quicker than the original, then the original, then KNLMeansCL, then
-SMDegrain. Only luma is denoised; tape chroma is already soft, and filtering it
-further costs more than it saves.
+SMDegrain. Luma and chroma are both denoised, in two passes: luma with a
+temporal radius, chroma spatially only, at half again the luma strength.
+Chroma noise is a first-class VHS defect — colour is recorded as a
+"colour-under" subcarrier down at 629 kHz, and it arrives soft *and* noisy.
+Those are independent facts, and the softness is a reason to filter chroma
+harder rather than leave it alone: there is little detail there to lose. The
+chroma pass skips temporal matching, which is what smears colour.
 
 ## Output formats
 
