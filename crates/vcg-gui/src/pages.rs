@@ -354,8 +354,19 @@ fn drop_zone(ui: &mut egui::Ui, app: &mut App) {
                     browse(app);
                 }
                 ui.add_space(12.0);
+                // What a tape capture actually arrives as. MPG belongs here —
+                // DVD recorders and standalone capture boxes write MPEG-2, and
+                // it was missing. MP4 and MOV are gone: they are delivery
+                // formats, and they are this app's *own* output, so listing
+                // them invites someone to feed a finished export back in and
+                // deinterlace it twice.
+                //
+                // This is a hint, not a gate. `dialog::VIDEO_EXTENSIONS` still
+                // offers mp4 and mov in the picker, and a dragged file is not
+                // filtered at all — somebody with a genuinely interlaced MP4
+                // off a DVR must still be able to open it.
                 ui.label(
-                    RichText::new("AVI · MP4 · MKV · MOV · MTS · DV · VOB")
+                    RichText::new("AVI · MPG · MKV · MTS · DV · VOB")
                         .size(theme::FONT_SMALL)
                         .color(theme::faint()),
                 );
