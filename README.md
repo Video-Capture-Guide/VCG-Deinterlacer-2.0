@@ -21,6 +21,21 @@ This tool does the structural work properly — once — so that what you keep i
 master you can edit, grade or archive from, rather than something you will want
 to redo.
 
+## What you can feed it
+
+The drop zone names the formats a tape capture actually arrives as:
+
+**AVI** · **MPG** · **MKV** · **MTS** · **DV** · **VOB**
+
+That list is a hint, not a gate. The file picker also offers **MP4**, **MOV**,
+**M2TS**, **MOD** and **WMV**, and a dragged file is not filtered at all, so
+anything FFmpeg and VapourSynth can open will open — including a genuinely
+interlaced MP4 off a DVR.
+
+MP4 and MOV are left off the hint deliberately. They are delivery formats, and
+they are this app's own output, so advertising them as inputs invites a
+finished export being fed back in and deinterlaced a second time.
+
 ## The three modes
 
 You choose the mode when you pick the file, because it decides which
@@ -118,7 +133,8 @@ separate, optional, visible steps.
 | `NoiseProcess` | `0` | QTGMC does no denoising at all |
 
 Output is **double-rate**: 50 or 59.94 progressive frames a second, one per
-field, so no motion is thrown away.
+field, so no motion is thrown away. A film transfer is the exception — it is
+not deinterlaced at all, and comes out at the film's own rate. See below.
 
 Two QTGMC implementations ship, and you can pick either:
 
@@ -130,6 +146,33 @@ libraries rather than between two sets of settings. Measured here they take
 about the same time, and the rewrite carries slightly less fine vertical
 detail. Neither benefits from a faster GPU, because the motion estimation
 underneath QTGMC is CPU-only.
+
+### Film transfers (3:2 pulldown)
+
+Material shot on film and transferred to NTSC tape carries 3:2 pulldown: four
+film frames spread over five video frames, two of them holding fields from two
+different film frames. Deinterlacing that would be the wrong operation — those
+fields are not a moment apart, they are whole film frames taken to pieces.
+
+The scan reads the picture itself at several points across the whole running
+time rather than the opening seconds, so a studio logo rendered at the video
+rate cannot make a film transfer read as video. When it finds the pattern, the
+original frames are put back together with `vivtc.VFM` and the native 23.976fps
+restored. A PAL 2:2 transfer is paired back the same way and stays at 25fps,
+with no decimation — there are no duplicate frames to drop.
+
+**A film transfer is rarely film all the way through.** Titles, credits,
+effects shots and concert inserts are routinely finished at the video rate and
+cut into the same tape, and a scene change can land mid-cadence. Every frame
+the field match cannot rebuild is deinterlaced on its own, before the duplicate
+frames are dropped, so a part-film tape comes out whole rather than with
+combing left in the video-sourced scenes. Only the flagged frames pay the cost.
+
+**And you can overrule it.** Film or video is a measurement with a confidence
+attached, not a certainty: a film transfer where every scene is busy can read
+as video, and a mostly-static interlaced tape can read as film. The Check video
+page shows which it decided and lets you change it — including when it found
+nothing, behind an "Override detection" link.
 
 ## Optional corrections and enhancements
 

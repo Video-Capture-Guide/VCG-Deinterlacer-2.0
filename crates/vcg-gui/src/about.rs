@@ -184,6 +184,45 @@ fn body(ui: &mut egui::Ui, app: &mut App) {
     );
     ui.add_space(16.0);
 
+    section(ui, "Film transfers (3:2 pulldown)");
+    paragraph(
+        ui,
+        "Material shot on film and transferred to NTSC tape carries 3:2 \
+         pulldown: four film frames spread over five video frames, two of \
+         them holding fields from two different film frames. Deinterlacing \
+         that would be the wrong operation — those fields are not a moment \
+         apart, they are whole film frames taken to pieces. The app reads \
+         the picture itself at several points across the whole running time \
+         rather than the opening seconds, so a studio logo rendered at the \
+         video rate cannot make a film transfer read as video. When it finds \
+         the pattern it puts the original frames back together and restores \
+         23.976fps. A PAL 2:2 transfer is paired back the same way, at 25fps.",
+    );
+    ui.add_space(8.0);
+    paragraph(
+        ui,
+        "A film transfer is rarely film all the way through. Titles, credits, \
+         effects shots and concert inserts are routinely finished at the \
+         video rate and cut into the same tape, and a scene change can land \
+         mid-cadence. Every frame that cannot be rebuilt from one film \
+         frame's two fields is deinterlaced on its own, before the duplicate \
+         frames are dropped — so a part-film tape comes out whole rather than \
+         with combing left in the video-sourced scenes. Only those frames pay \
+         the cost; a transfer that really is film throughout runs at full \
+         speed.",
+    );
+    ui.add_space(8.0);
+    paragraph(
+        ui,
+        "Film or video is a measurement with a confidence attached, not a \
+         certainty — a film transfer where every scene is busy can read as \
+         video, and a mostly-static interlaced tape can read as film. The \
+         Check video page shows which it decided and lets you change it, \
+         including when it found nothing, so a tape you know better than the \
+         scan does can always be set by hand.",
+    );
+    ui.add_space(16.0);
+
     section(ui, "Export formats");
     for (name, line) in [
         (

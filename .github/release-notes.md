@@ -1,3 +1,31 @@
+## New in 2.0.5
+
+**Film transfers now come out clean, and you can overrule the film check.**
+
+A tape made from film carries 3:2 pulldown — four film frames spread over
+five video frames — and the app has always detected that and removed it,
+restoring the original 23.976fps. What it did not do was finish the job. A
+film transfer is rarely film all the way through: titles, credits, effects
+shots and concert inserts are routinely finished at the video rate and cut
+into the same tape, and a scene change can land mid-cadence. The field match
+flags every frame it cannot rebuild from one film frame's two fields, and
+those frames were going out still combed — on a telecined music video,
+15% of them, spread evenly over the whole running time. That is what showed
+up as stepping on a film transfer that was otherwise correct. Those frames
+are now deinterlaced individually, before the duplicate frames are dropped.
+Only the flagged frames pay the cost, so a transfer that really is film all
+through runs as fast as it did.
+
+**And if the check gets it wrong, you can now say so.** Film or video is a
+measurement with a confidence attached, not a certainty: a film transfer
+where every scene is busy can read as video, and a mostly-static interlaced
+tape can read as film. The Check video page now shows which it decided and
+lets you change it — straight away when it found a pulldown, and behind an
+"Override detection" link when it did not, which is the case where someone
+who knows their own tape previously had no way to correct it. Your choice
+sticks, including when you switch modes, and the page tells you when it is
+yours rather than the scan's.
+
 ## New in 2.0.4
 
 **An export queue.** Line up as many tapes as you like and leave them: they
