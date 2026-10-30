@@ -196,6 +196,95 @@ fn ivtc_field_match_runs_on_an_8_bit_copy() {
 }
 
 #[test]
+fn ivtc_deinterlaces_the_frames_the_field_match_could_not_repair() {
+    // VFM leaves every frame it could not build from one film frame's two
+    // fields flagged and combed. Without this fallback they go out combed —
+    // measured at 15% of frames on a telecined music video, which is what the
+    // viewer sees as stepping on an otherwise clean film transfer.
+    let s = script(&Config {
+        ivtc_mode: true,
+        ..Config::default()
+    });
+    assert!(s.contains("_ivtc_matched = clip"));
+    assert!(s.contains("f.props.get(\"_Combed\", 0)"));
+    assert!(s.contains("core.std.FrameEval(_ivtc_matched, _ivtc_pp, prop_src=_ivtc_matched)"));
+
+    // Before decimation, not after: VDecimate drops one frame in five by
+    // comparing neighbours, and a combed frame in the cycle is both a bad
+    // comparison and a candidate for being the one kept.
+    assert!(pos(&s, "FrameEval(_ivtc_matched") < pos(&s, "VDecimate"));
+}
+
+#[test]
+fn the_ivtc_fallback_is_always_single_rate() {
+    // FrameEval picks between two clips frame by frame, so they must have the
+    // same length. A double-rate fallback would be twice as long as the
+    // matched clip and the script would not even open.
+    for double_rate in [true, false] {
+        let s = script(&Config {
+            ivtc_mode: true,
+            double_rate,
+            ..Config::default()
+        });
+        let at = pos(&s, "_ivtc_deint = ");
+        let tail = &s.lines().collect::<Vec<_>>()[at..at + 12].join("
+");
+        assert!(
+            tail.contains("FPSDivisor=2,"),
+            "double_rate={double_rate} gave a fallback that is not single-rate"
+        );
+    }
+}
+
+#[test]
+fn the_ivtc_fallback_matches_the_field_order_and_the_chosen_qtgmc() {
+    // The fallback deinterlaces the same fields VFM just matched, so a
+    // disagreement about dominance here would comb the frames it is meant to
+    // repair.
+    let bff = script(&Config {
+        ivtc_mode: true,
+        field_order: FieldOrder::Bff,
+        ..Config::default()
+    });
+    assert!(bff.contains("order=0,"));
+    let at = pos(&bff, "_ivtc_deint = ");
+    assert!(bff.lines().collect::<Vec<_>>()[at..at + 6].join("
+").contains("TFF=False,"));
+
+    // And it honours the expert QTGMC choice rather than silently using the
+    // other codebase for part of the picture.
+    let modern = script(&Config {
+        ivtc_mode: true,
+        qtgmc_impl: vcg_core::config::QtgmcImpl::Modern,
+        ..Config::default()
+    });
+    assert!(modern.contains("_ivtc_deint = ("));
+    assert!(modern.contains(".deinterlace(_ivtc_matched, tff=True)"));
+}
+
+#[test]
+fn pal_ivtc_gets_the_fallback_too() {
+    // A 2:2 transfer carries video-sourced inserts just as an NTSC one does;
+    // it simply is not decimated afterwards.
+    let pal = script(&Config {
+        format: VideoFormat::Pal,
+        ivtc_mode: true,
+        ..Config::default()
+    });
+    assert!(pal.contains("core.std.FrameEval(_ivtc_matched"));
+    assert!(!pal.contains("VDecimate"));
+}
+
+#[test]
+fn the_ordinary_deinterlace_has_no_combed_fallback() {
+    // Nothing matched any fields, so there is no _Combed flag to read and
+    // every frame is deinterlaced anyway.
+    let s = script(&Config::default());
+    assert!(!s.contains("_Combed"));
+    assert!(!s.contains("_ivtc_"));
+}
+
+#[test]
 fn field_order_maps_to_tff_and_vfm_order() {
     let tff = script(&Config::default());
     assert!(tff.contains("TFF=True,"));

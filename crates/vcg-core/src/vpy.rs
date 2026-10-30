@@ -808,6 +808,19 @@ fn deinterlace(s: &mut Script, config: &Config) {
         s.push("# clip via clip2 (documented VFM usage — no precision loss).");
         s.push("_vfm8 = core.fmtc.bitdepth(clip, bits=8)");
         s.push(format!("clip = core.vivtc.VFM(_vfm8, order={order}, clip2=clip)"));
+        s.gap();
+
+        // Before decimation, not after: VDecimate drops one frame in five by
+        // comparing neighbours, and a combed frame left in the cycle is both
+        // a bad comparison and a candidate for being the one kept.
+        let tff = if config.field_order == FieldOrder::Tff {
+            "True"
+        } else {
+            "False"
+        };
+        ivtc_postprocess(s, config, tff);
+        s.gap();
+
         if config.format == VideoFormat::Pal {
             // PAL 2:2 has no duplicate frames to remove — VDecimate (cycle=5)
             // would discard every 5th real frame, producing 20fps judder.
@@ -841,7 +854,7 @@ fn deinterlace(s: &mut Script, config: &Config) {
         s.push(format!(
             "# Frame-rate mode: {mode} — fps_divisor={fps_divisor}"
         ));
-        modern_qtgmc(s, tff, fps_divisor);
+        modern_qtgmc(s, "clip", "clip", tff, fps_divisor);
         s.gap();
         return;
     }
@@ -850,8 +863,18 @@ fn deinterlace(s: &mut Script, config: &Config) {
     s.push(format!(
         "# Frame-rate mode: {mode} — FPSDivisor={fps_divisor}"
     ));
-    s.push("clip = haf.QTGMC(");
-    s.push("    clip,");
+    legacy_qtgmc(s, "clip", "clip", tff, fps_divisor);
+    s.gap();
+}
+
+/// Emit `target = haf.QTGMC(source, ...)` with the standard profile.
+///
+/// Named rather than hardcoded to `clip` because the inverse-telecine path
+/// needs a second, separately named deinterlace to fall back on — see
+/// `ivtc_postprocess`.
+fn legacy_qtgmc(s: &mut Script, target: &str, source: &str, tff: &str, fps_divisor: u32) {
+    s.push(format!("{target} = haf.QTGMC("));
+    s.push(format!("    {source},"));
     s.push(format!("    TFF={tff},"));
     s.push(format!("    FPSDivisor={fps_divisor},"));
     // The Python appends a trailing comma to every setting then strips it from
@@ -862,7 +885,45 @@ fn deinterlace(s: &mut Script, config: &Config) {
         s.push(format!("    {key}={value}{comma}"));
     }
     s.push(")");
-    s.gap();
+}
+
+/// Repair the frames the field match could not.
+///
+/// A film transfer is rarely film all the way through. Titles, credits,
+/// concert inserts and effects shots are routinely finished at the video rate
+/// and cut into the same tape, and a scene change can land mid-cadence. VFM
+/// flags every frame it could not assemble from one film frame's two fields,
+/// and until this existed those frames went out still combed — which is
+/// exactly what a viewer sees as stepping on an otherwise clean film
+/// transfer, and it is the documented way to use VFM rather than a
+/// refinement. Measured at 15% of frames on a telecined music video, spread
+/// evenly over the whole running time; raising VFM's match mode moved it by
+/// less than one point, because those fields have no match to find.
+///
+/// Only the flagged frames are deinterlaced. `FrameEval` asks the deinterlaced
+/// clip for a frame only when the matched one is combed, so the cost is in
+/// proportion to how much of the file is not film, and a true film transfer
+/// pays almost nothing.
+///
+/// Single-rate (`FPSDivisor=2`) is not a preference here: `FrameEval` needs
+/// both clips to have the same length, and the output of this stage is one
+/// frame per matched frame either way.
+fn ivtc_postprocess(s: &mut Script, config: &Config, tff: &str) {
+    s.push("# Frames the field match could not repair — deinterlace just those.");
+    s.push("#");
+    s.push("# A film transfer is rarely film throughout: titles, credits and");
+    s.push("# effects shots are often finished at the video rate, and a scene");
+    s.push("# cut can land mid-cadence. VFM flags what it could not match, and");
+    s.push("# those frames would otherwise go out still combed.");
+    s.push("_ivtc_matched = clip");
+    if config.qtgmc_impl == QtgmcImpl::Modern {
+        modern_qtgmc(s, "_ivtc_deint", "_ivtc_matched", tff, 2);
+    } else {
+        legacy_qtgmc(s, "_ivtc_deint", "_ivtc_matched", tff, 2);
+    }
+    s.push("def _ivtc_pp(n, f):");
+    s.push("    return _ivtc_deint if f.props.get(\"_Combed\", 0) else _ivtc_matched");
+    s.push("clip = core.std.FrameEval(_ivtc_matched, _ivtc_pp, prop_src=_ivtc_matched)");
 }
 
 /// The same least-destructive deinterlace, spelled in the JET rewrite's
@@ -939,13 +1000,13 @@ fn deinterlace(s: &mut Script, config: &Config) {
 /// for a 50% flow blur. havsfunc's `FPSDivisor` only ever dropped frames.
 /// Saying the source angle is 360 makes `angle_out * divisor == angle_in`,
 /// which is the branch that blurs nothing and decimates.
-fn modern_qtgmc(s: &mut Script, tff: &str, fps_divisor: u32) {
+fn modern_qtgmc(s: &mut Script, target: &str, source: &str, tff: &str, fps_divisor: u32) {
     s.push("# Least-destructive profile, the same one the havsfunc path uses:");
     s.push("# deinterlace only, no denoising, near-zero sharpening, and source");
     s.push("# matching with lossless field reinsertion for maximum fidelity.");
     s.push("# Preset=\"Slower\" is spelled out as the bobber and refine values");
     s.push("# it implies; the rewrite has no preset of its own.");
-    s.push("clip = (");
+    s.push(format!("{target} = ("));
     s.push("    _vcg_qtgmc()");
     // RefineMotion=False: no Recalculate pass.
     s.push("    .analyze(refine=0)");
@@ -974,7 +1035,7 @@ fn modern_qtgmc(s: &mut Script, tff: &str, fps_divisor: u32) {
     } else {
         s.push("    .motion_blur(fps_divisor=1)");
     }
-    s.push(format!("    .deinterlace(clip, tff={tff})"));
+    s.push(format!("    .deinterlace({source}, tff={tff})"));
     s.push(")");
 }
 
@@ -1711,18 +1772,9 @@ pub fn generate_preview_vpy(config: &Config, deps: &DepsPaths) -> String {
         };
         // Single-rate keeps output frame numbers aligned with the source.
         if config.qtgmc_impl == QtgmcImpl::Modern {
-            modern_qtgmc(&mut s, tff, 2);
+            modern_qtgmc(&mut s, "clip", "clip", tff, 2);
         } else {
-            s.push("clip = haf.QTGMC(");
-            s.push("    clip,");
-            s.push(format!("    TFF={tff},"));
-            s.push("    FPSDivisor=2,");
-            let last = QTGMC_SETTINGS.len() - 1;
-            for (i, (key, value)) in QTGMC_SETTINGS.iter().enumerate() {
-                let comma = if i == last { "" } else { "," };
-                s.push(format!("    {key}={value}{comma}"));
-            }
-            s.push(")");
+            legacy_qtgmc(&mut s, "clip", "clip", tff, 2);
         }
         s.gap();
     }
