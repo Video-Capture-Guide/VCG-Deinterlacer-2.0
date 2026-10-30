@@ -678,6 +678,18 @@ impl App {
             .push((key.to_string(), open));
     }
 
+    /// Record a hand-made film-versus-video choice from the Check page.
+    ///
+    /// `detected` is what the scan concluded. Only a choice that departs from
+    /// it counts as an override: clicking the chip the scan already chose puts
+    /// the file back under automatic control, so a re-analysis is free to
+    /// correct itself rather than being pinned to a value the user never
+    /// really disagreed with.
+    pub fn set_ivtc_mode(&mut self, on: bool, detected: bool) {
+        self.config.ivtc_mode = on;
+        self.config.ivtc_user_override = on != detected;
+    }
+
     pub fn queue_goto(&self, step: Step) {
         self.pending.borrow_mut().goto = Some(step);
     }

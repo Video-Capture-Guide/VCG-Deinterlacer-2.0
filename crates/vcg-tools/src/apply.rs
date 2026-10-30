@@ -199,14 +199,17 @@ fn apply_structural(config: &mut Config, report: &Report) {
     if let Some(t) = &report.telecine {
         if t.progressive_source {
             config.field_order = FieldOrder::Progressive;
-            config.ivtc_mode = false;
-        } else if t.pattern.is_some() {
-            // 3:2 and 2:2 are both inverse telecine; the .vpy generator picks
-            // the right handling from the video standard, so the pattern
-            // itself does not need carrying into the config.
-            config.ivtc_mode = true;
-        } else {
-            config.ivtc_mode = false;
+        }
+        // A manual film-versus-video choice outranks the measurement, and
+        // keeps outranking it: this function runs again on every mode change,
+        // so without the guard the user's answer would be overwritten by the
+        // detection a second after they gave it.
+        //
+        // 3:2 and 2:2 are both inverse telecine; the .vpy generator picks the
+        // right handling from the video standard, so the pattern itself does
+        // not need carrying into the config.
+        if !config.ivtc_user_override {
+            config.ivtc_mode = !t.progressive_source && t.pattern.is_some();
         }
     }
 }

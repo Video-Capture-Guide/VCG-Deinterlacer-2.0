@@ -541,6 +541,101 @@ fn progressive_sources_skip_deinterlacing_in_every_mode() {
     }
 }
 
+/// A film report, for the override tests below.
+fn film_report() -> Report {
+    let mut report = awful_tape();
+    report.telecine = Some(Telecine {
+        pattern: Some(Pattern::ThreeTwo),
+        confidence: Some(Confidence::High),
+        progressive_source: false,
+        windows: 5,
+        film_windows: 5,
+        prog_ratio: 0.40,
+        rep_ratio: 0.40,
+        tff_frames: 0,
+        bff_frames: 0,
+    });
+    report
+}
+
+/// A report with no pulldown found, for the override tests below.
+fn video_report() -> Report {
+    let mut report = awful_tape();
+    report.telecine = Some(Telecine {
+        pattern: None,
+        confidence: None,
+        progressive_source: false,
+        windows: 5,
+        film_windows: 0,
+        prog_ratio: 0.08,
+        rep_ratio: 0.01,
+        tff_frames: 1200,
+        bff_frames: 0,
+    });
+    report
+}
+
+#[test]
+fn a_hand_made_film_choice_survives_re_analysis() {
+    // The Check page's film-versus-video choice writes `ivtc_mode` directly,
+    // and `apply_report` runs again every time the user changes mode. Without
+    // the override flag the user's answer was overwritten by the detection a
+    // second after they gave it — the setting moved on its own, which is the
+    // one thing a manual override must never do.
+    //
+    // Both directions matter: a film transfer the scan missed, and a video
+    // source the scan flagged by mistake.
+    let mut config = Config { ivtc_mode: true, ivtc_user_override: true, ..Config::default() };
+    for mode in Mode::ALL {
+        apply_report(&mut config, &video_report(), mode);
+        assert!(config.ivtc_mode, "{mode:?} discarded a manual film choice");
+    }
+
+    let mut config = Config { ivtc_mode: false, ivtc_user_override: true, ..Config::default() };
+    for mode in Mode::ALL {
+        apply_report(&mut config, &film_report(), mode);
+        assert!(!config.ivtc_mode, "{mode:?} discarded a manual video choice");
+    }
+}
+
+#[test]
+fn without_an_override_the_scan_still_decides() {
+    // The guard must not become a way for a stale value to persist: with the
+    // flag clear, the measurement is in charge in both directions.
+    for mode in Mode::ALL {
+        let mut config = Config { ivtc_mode: true, ..Config::default() };
+        apply_report(&mut config, &video_report(), mode);
+        assert!(!config.ivtc_mode, "{mode:?}");
+
+        let mut config = Config::default();
+        apply_report(&mut config, &film_report(), mode);
+        assert!(config.ivtc_mode, "{mode:?}");
+    }
+}
+
+#[test]
+fn an_override_does_not_disturb_the_progressive_field_order() {
+    // Field order is read off the picture and is structural; forcing inverse
+    // telecine by hand says nothing about it, so the progressive verdict must
+    // still land.
+    let mut report = awful_tape();
+    report.telecine = Some(Telecine {
+        pattern: None,
+        confidence: None,
+        progressive_source: true,
+        windows: 5,
+        film_windows: 0,
+        prog_ratio: 0.99,
+        rep_ratio: 0.0,
+        tff_frames: 0,
+        bff_frames: 0,
+    });
+    let mut config = Config { ivtc_mode: true, ivtc_user_override: true, ..Config::default() };
+    apply_report(&mut config, &report, Mode::EnhanceAutomatically);
+    assert_eq!(config.field_order, FieldOrder::Progressive);
+    assert!(config.ivtc_mode, "the manual choice still stands");
+}
+
 #[test]
 fn a_measured_scan_type_outranks_the_container() {
     // Containers frequently declare TFF on film-sourced material. The picture

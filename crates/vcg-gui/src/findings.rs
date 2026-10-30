@@ -13,7 +13,7 @@ use vcg_core::analysis::classify::{
 };
 use vcg_core::analysis::halo::HaloLevel;
 use vcg_core::analysis::idet::Pattern;
-use vcg_core::config::{Config, LevelsAdjustment, Mode, NoiseLevel};
+use vcg_core::config::{Config, LevelsAdjustment, Mode, NoiseLevel, VideoFormat};
 use vcg_tools::probe::Report;
 
 use crate::nav::Step;
@@ -193,9 +193,13 @@ impl Finding {
 /// Everything the report found, worded, in display order.
 ///
 /// Interlacing comes first because it is the one fix that always applies.
-pub fn collect(report: &Report) -> Vec<Finding> {
+///
+/// `config` is read, not written: the scan-type wording has to describe what
+/// will actually happen, and that is the configuration's answer rather than
+/// the measurement's whenever the user has overridden the film check.
+pub fn collect(report: &Report, config: &Config) -> Vec<Finding> {
     let mut out = Vec::new();
-    out.push(interlacing(report));
+    out.push(interlacing(report, config));
     if let Some(f) = brightness(report) {
         out.push(f);
     }
@@ -268,7 +272,7 @@ const WHAT_INTERLACING_MEANS: &str = "Old TVs drew every picture in two passes \
     and source matching that keeps the result true to the lines your deck \
     actually recorded. Removing noise is a separate step you choose yourself.";
 
-fn interlacing(report: &Report) -> Finding {
+fn interlacing(report: &Report, config: &Config) -> Finding {
     let Some(t) = &report.telecine else {
         return Finding {
             check: Check::Interlacing,
@@ -319,8 +323,35 @@ fn interlacing(report: &Report) -> Finding {
         };
     }
 
-    match t.pattern {
-        Some(pattern) => Finding {
+    // Which pulldown a film transfer of this standard carries. The detection
+    // reports it, but a user who overrode a negative result has given us no
+    // pattern to report, and the standard settles it: NTSC transfers are 3:2,
+    // PAL transfers 2:2.
+    let pattern = t.pattern.unwrap_or(if config.format == VideoFormat::Pal {
+        Pattern::TwoTwo
+    } else {
+        Pattern::ThreeTwo
+    });
+
+    // What was measured, said once. Both branches below report the same scan;
+    // they differ only in what is being done about it.
+    let measured = format!(
+        "{} film window(s) of {} · {:.0}% progressive · {:.0}% repeated fields",
+        t.film_windows,
+        t.windows,
+        t.prog_ratio * 100.0,
+        t.rep_ratio * 100.0
+    );
+    // The user's answer and the scan's can disagree, and when they do the
+    // details panel has to say so. Otherwise the numbers on screen argue
+    // against the action beside them with nothing to explain the gap.
+    let overridden = config.ivtc_user_override && config.ivtc_mode != t.detected();
+
+    // The configuration decides, not the measurement: on an overridden file
+    // these are not the same answer, and this card describes what the export
+    // will actually do.
+    match config.ivtc_mode {
+        true => Finding {
             check: Check::Interlacing,
             title: "Interlacing lines".into(),
             tag: Tag::Required,
@@ -335,16 +366,16 @@ fn interlacing(report: &Report) -> Finding {
                 pattern.target_fps()
             )),
             details: format!(
-                "{} pattern found in {} of {} window(s) · {:.0}% progressive · \
-                 {:.0}% repeated fields → film-sourced; pulldown removal used.",
+                "{} pattern · {measured} → film-sourced; pulldown removal used.{}",
                 match pattern {
                     Pattern::ThreeTwo => "3:2",
                     Pattern::TwoTwo => "2:2",
                 },
-                t.film_windows,
-                t.windows,
-                t.prog_ratio * 100.0,
-                t.rep_ratio * 100.0
+                if overridden {
+                    " The scan found no consistent pulldown; you chose film by hand."
+                } else {
+                    ""
+                }
             ),
             note: None,
             notice_title: "Movement looks jagged".into(),
@@ -355,7 +386,7 @@ fn interlacing(report: &Report) -> Finding {
                 "Parts of this video came from film, so we'll also undo the film-to-video conversion.".into(),
             ),
         },
-        None => Finding {
+        false => Finding {
             check: Check::Interlacing,
             title: "Interlacing lines".into(),
             tag: Tag::Required,
@@ -367,11 +398,12 @@ fn interlacing(report: &Report) -> Finding {
                 .into(),
             action: Some("deinterlace with QTGMC (best quality)".into()),
             details: format!(
-                "No film pattern found in {} window(s) · {:.0}% progressive · \
-                 {:.0}% repeated fields → Not film-sourced; no pulldown removal needed.",
-                t.windows,
-                t.prog_ratio * 100.0,
-                t.rep_ratio * 100.0
+                "No pulldown removal · {measured} → treated as video.{}",
+                if overridden {
+                    " The scan read this as a film transfer; you chose video by hand."
+                } else {
+                    ""
+                }
             ),
             note: None,
             notice_title: "Movement looks jagged".into(),

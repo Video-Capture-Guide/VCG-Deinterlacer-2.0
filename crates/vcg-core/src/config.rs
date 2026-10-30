@@ -366,6 +366,15 @@ pub struct Config {
     pub qtgmc_impl: QtgmcImpl,
     /// Inverse telecine — restore native film rate from a 3:2 pulldown source.
     pub ivtc_mode: bool,
+    /// Set when the user answered film-versus-video by hand.
+    ///
+    /// Telecine detection is a measurement with a confidence attached, and on
+    /// a borderline transfer the person who knows the tape is better informed
+    /// than the measurement. So their answer has to outrank it — and has to
+    /// keep outranking it, because the analysis is re-applied on every mode
+    /// change. Without this flag a manual choice silently reverted to
+    /// whatever idet read the moment the user switched modes.
+    pub ivtc_user_override: bool,
 
     // ── Trim ────────────────────────────────────────────────────────────
     /// Inclusive source-frame ranges to keep. Empty means the whole clip.
@@ -488,6 +497,7 @@ impl Default for Config {
             double_rate: true,
             qtgmc_impl: QtgmcImpl::Legacy,
             ivtc_mode: false,
+            ivtc_user_override: false,
 
             trim_ranges: Vec::new(),
 

@@ -329,10 +329,15 @@ fn plan_lines(app: &App) -> Vec<String> {
     let mut lines = Vec::new();
     let c = &app.config;
 
+    // Flagged when film-versus-video was answered by hand rather than by the
+    // scan. This list is what the user confirms before an export that can run
+    // for hours, and an overridden scan type is the line on it most worth a
+    // second look — it changes the frame rate of the finished file.
+    let by_hand = if c.ivtc_user_override { " (set by hand)" } else { "" };
     lines.push(if c.ivtc_mode {
-        "Put the original film frames back together".to_string()
+        format!("Put the original film frames back together{by_hand}")
     } else {
-        "Remove the interlacing with QTGMC".to_string()
+        format!("Remove the interlacing with QTGMC{by_hand}")
     });
 
     let st = crate::crop::effective_strips(c);

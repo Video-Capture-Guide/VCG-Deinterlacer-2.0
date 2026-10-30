@@ -59,7 +59,7 @@ pub fn check_video(ui: &mut egui::Ui, app: &mut App) -> PageAction {
         return action;
     };
 
-    let all = findings::collect(&report);
+    let all = findings::collect(&report, &app.config);
 
     header(ui, app);
     ui.add_space(22.0);
@@ -81,7 +81,7 @@ pub fn check_video(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     section_number(ui, 2, "What we'll do");
     ui.add_space(10.0);
     if let Some(f) = interlacing.cloned() {
-        hero_card(ui, app, &f);
+        hero_card(ui, app, &f, &report);
     }
     ui.add_space(22.0);
 
@@ -209,7 +209,7 @@ pub fn section_number(ui: &mut egui::Ui, number: usize, title: &str) {
 
 // ── ① The hero card ─────────────────────────────────────────────────────────
 
-fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding) {
+fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding, report: &Report) {
     // A progressive file has no fields to weave, and QTGMC is skipped on it.
     // Saying "Remove interlacing lines · Always on" over a file that holds
     // whole frames already promises work that will not happen, and tells
@@ -228,8 +228,15 @@ fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 10.0;
                     ui.label(
+                        // A film source is not having interlacing removed —
+                        // it is having whole frames reassembled from fields
+                        // that were never a moment apart. Saying "Remove
+                        // interlacing lines" over a pulldown removal names
+                        // the wrong operation in the largest type on the page.
                         RichText::new(if progressive {
                             "No interlacing to remove"
+                        } else if app.config.ivtc_mode {
+                            "Put the original film frames back"
                         } else {
                             "Remove interlacing lines"
                         })
@@ -298,7 +305,21 @@ fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding) {
                 ui.painter().rect_filled(rule, 0.0, theme::line());
             }
             ui.add_space(14.0);
-            frame_rate_choice(ui, app);
+
+            // Film or video comes first, because it decides whether the
+            // frame-rate question below exists at all.
+            telecine_choice(ui, app, report);
+
+            // Frame rate is a deinterlacing control. Inverse telecine does not
+            // deinterlace — it reassembles the original whole film frames — so
+            // the choice has no meaning on a film source, and the rate is the
+            // film's own. Leaving a "59.94 fps (Recommended)" chip selected
+            // over a file that will export at 23.976 would be the page
+            // contradicting itself.
+            if !app.config.ivtc_mode {
+                ui.add_space(16.0);
+                frame_rate_choice(ui, app);
+            }
 
             // Expert mode only, and deliberately. Which of two codebases runs
             // the deinterlace is not a question the other two modes should
@@ -391,6 +412,134 @@ fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
             )
             .size(theme::FONT_SMALL)
             .color(theme::faint()),);
+}
+
+/// Film or video — the one scan verdict the user is allowed to overrule.
+///
+/// Telecine detection reads the picture rather than the container, which is
+/// the only way to get it right, but it is still a measurement with a
+/// confidence attached. A film transfer whose every scene is busy can read as
+/// video, because idet calls each moving frame interlaced; a mostly-static
+/// interlaced tape can read as film, because idet cannot tell a still frame
+/// from a progressive one. The person who owns the tape frequently knows
+/// which it is, and on a borderline file they are better informed than the
+/// scan — so the answer has to be reachable either way.
+///
+/// Shown outright when the scan found a pattern, since that is a claim worth
+/// confirming, and folded behind "Override detection" when it did not: a
+/// negative result is the case where someone who knows better would otherwise
+/// have no way in at all.
+fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) {
+    let scanned = report.telecine.is_some();
+    let detected = report.telecine.as_ref().is_some_and(|t| t.detected());
+    let pal = app.config.format == VideoFormat::Pal;
+    let key = "telecine-override";
+    // On the face of the card when the scan found film, or when the user has
+    // already answered; otherwise folded away, so a page with nothing to ask
+    // does not ask it.
+    let revealed = detected || app.config.ivtc_user_override || app.is_open(key);
+
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 10.0;
+        ui.label(
+            RichText::new("Film or video")
+                .size(theme::FONT_BODY)
+                .color(theme::text()),
+        );
+        if detected {
+            pill(ui, if pal { "2:2 pulldown found" } else { "3:2 pulldown found" });
+        } else if scanned {
+            pill(ui, "No pulldown found");
+        }
+    });
+
+    if !revealed {
+        ui.add_space(8.0);
+        // Two different situations, and they must not be worded alike. A scan
+        // that ran and found nothing is a result; a scan that could not run is
+        // not, and claiming it read the file as video would be reporting a
+        // measurement that never happened.
+        theme::paragraph(ui, RichText::new(if scanned {
+                "This reads as ordinary interlaced video, so it will be deinterlaced. If you know this tape holds a film transfer, you can say so."
+            } else {
+                "The film check could not be run on this file, so it will be deinterlaced as ordinary video. If you know this tape holds a film transfer, you can say so."
+            })
+            .size(theme::FONT_SMALL)
+            .color(theme::muted()),);
+        ui.add_space(8.0);
+        if theme::link(ui, "Override detection").clicked() {
+            app.queue_open(key, true);
+        }
+        return;
+    }
+
+    // The frame rates are the standard's, not a guess: 3:2 pulldown carries
+    // 23.976fps film at 29.97, and a PAL 2:2 transfer carries 25fps film at
+    // 25 — the rate does not change there, only how the fields are paired.
+    let (film, video) = if pal {
+        (
+            "Film (2:2) — rebuild 25 fps whole frames",
+            "Video — deinterlace (25 / 50 fps)",
+        )
+    } else {
+        (
+            "Film (3:2) — restore 23.976 fps",
+            "Video — deinterlace (29.97 / 59.94 fps)",
+        )
+    };
+    // Which side the scan is on, marked the same way every other recommended
+    // chip on this page is marked.
+    let film_label = if detected { format!("{film} (Recommended)") } else { film.to_string() };
+    let video_label = if detected { video.to_string() } else { format!("{video} (Recommended)") };
+
+    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        if theme::chip_button(ui, &film_label, app.config.ivtc_mode) {
+            app.set_ivtc_mode(true, detected);
+        }
+        if theme::chip_button(ui, &video_label, !app.config.ivtc_mode) {
+            app.set_ivtc_mode(false, detected);
+        }
+    });
+
+    ui.add_space(8.0);
+    theme::paragraph(ui, RichText::new(if app.config.ivtc_mode {
+                if pal {
+                    "Film: the two fields of each frame came from the same instant, so they are paired back into the original whole frames instead of being deinterlaced. The frame rate stays 25."
+                } else {
+                    "Film: four film frames were spread over five video frames to fill 29.97fps. Those extra fields are removed and the original 23.976fps frames rebuilt, rather than deinterlaced."
+                }
+            } else {
+                "Video: each frame is two halves recorded a moment apart, so they are rebuilt into whole frames with QTGMC. This is right for anything shot on a video camera."
+            })
+            .size(theme::FONT_SMALL)
+            .color(theme::muted()),);
+
+    // Say plainly when the choice departs from the scan. A card that shows a
+    // measurement and then does the opposite of what it implies has to
+    // account for the gap, and the way back has to be visible — otherwise an
+    // override made by accident is permanent for that file.
+    if app.config.ivtc_user_override {
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 4.0;
+            ui.label(
+                RichText::new(if detected {
+                    "Set by hand — the scan found a film pulldown."
+                } else if scanned {
+                    "Set by hand — the scan found no film pulldown."
+                } else {
+                    "Set by hand — the film check could not be run."
+                })
+                .size(theme::FONT_SMALL)
+                .color(theme::faint()),
+            );
+            if theme::link(ui, "Use what the scan found").clicked() {
+                app.set_ivtc_mode(detected, detected);
+            }
+        });
+    }
 }
 
 /// Double-rate or single-rate, in frames per second rather than in jargon.
