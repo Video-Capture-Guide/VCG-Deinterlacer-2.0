@@ -217,6 +217,12 @@ well. Ordered dithering, or none at all, are options on the Dithering page.
 Sound is carried through as uncompressed 16-bit PCM in the two master formats,
 and re-encoded to AAC only for H.264.
 
+A capture's sound often stops a fraction of a second before its picture does,
+and something has to decide which of the two the file is as long as. The
+picture decides: every frame you captured is kept, and a shortfall in the
+sound becomes silence at the end. The reverse would quietly discard frames to
+match — on one 58.66-second capture here, the last ten.
+
 Colour is tagged rather than converted — BT.601 primaries, `smpte170m` for NTSC
 or `bt470bg` for PAL. The one exception is upscaling to HD: an HD-sized frame is
 read as BT.709 by players, so in that case the pixels really are converted, and

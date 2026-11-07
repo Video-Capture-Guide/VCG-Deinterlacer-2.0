@@ -251,6 +251,14 @@ pub fn run_piped(
             return Err(e);
         }
     };
+    // `spawn` duplicates the stdin handle for the child and leaves the
+    // original in the `Command`, which would make *this* process a second
+    // reader of the pipe. The producer's write then never fails when the
+    // consumer goes, so it has to be killed at the deadline below instead of
+    // ending by itself — five seconds added to every preview whose ffmpeg
+    // stops reading early, and in `encode::pipe_with_progress`, where the
+    // wait had no deadline, a hang with the finished file already on disk.
+    drop(consumer);
     let cons_out = drain(cons.stdout.take().expect("stdout is piped"));
     let cons_err = drain(cons.stderr.take().expect("stderr is piped"));
 

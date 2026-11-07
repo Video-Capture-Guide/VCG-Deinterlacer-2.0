@@ -2030,7 +2030,7 @@ pub fn audio_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
                     "The repair is a pan filter applied while the audio is extracted, taking the live channel to both sides. It joins the trim graph when there is one, because -af and -filter_complex cannot both apply to the same stream — adding it beside the trim made FFmpeg fail outright and the export carried on and produced a file with no sound.",
                     "Extraction is a decode to 16-bit PCM, not a stream copy: the source codec may not be legal in the output container, and a tape's audio is small next to its video.",
                     "ProRes and FFV1 keep that PCM. Without an explicit codec the container default takes over, and .mov re-encoded to 129 kbps AAC — lossy sound inside a master nobody asked to be lossy.",
-                    "-shortest is passed as a backstop. A container is as long as its longest stream, so a mismatch between picture and sound would silently pad the file rather than fail.",
+                    "The picture decides the length. A container is as long as its longest stream, so a mismatch between picture and sound has to be resolved or the file is silently padded. -apad with -shortest resolves it in favour of the video: a capture whose sound is a fraction of a second short of its picture keeps every frame, and the shortfall becomes silence rather than ten discarded frames.",
                 ] {
                     wrapped(ui, para, theme::FONT_SMALL, theme::muted());
                     ui.add_space(8.0);

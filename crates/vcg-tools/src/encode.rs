@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use vcg_core::colorspace::output_cs_tag;
 use vcg_core::config::{Config, OutputFormat};
@@ -299,9 +299,32 @@ fn encode_command(
         if config.output_format != OutputFormat::H264 {
             cmd.args(["-c:a", "pcm_s16le"]);
         }
-        // A container is as long as its longest stream, so any residual
-        // mismatch would silently pad the file rather than fail.
-        cmd.arg("-shortest");
+        // Make the picture authoritative and let the sound follow it.
+        //
+        // A container is as long as its longest stream, so a mismatch between
+        // the two has to be resolved here or the file is silently padded.
+        // `-shortest` alone resolved it the wrong way round: it ends the
+        // output when the *audio* runs out, and a capture's audio is commonly
+        // a fraction of a second shorter than its video — one AVI here is
+        // 58.6586s of picture against 58.5000s of sound, and the export threw
+        // away the last ten frames to match.
+        //
+        // `apad` makes the audio stream endless, so `-shortest` now ends the
+        // output at the end of the video instead. Every captured frame is
+        // kept and any shortfall in the sound becomes silence, which is both
+        // the lesser loss and the one nobody has to notice.
+        //
+        // It also removes a failure that looked nothing like its cause: with
+        // the audio ending first, FFmpeg exited while VapourSynth still had
+        // frames to write, and the broken pipe that followed hung the export
+        // outright until `pipe_with_progress` learned to let go of its end.
+        // Longer audio than video is handled by the same pair — `apad` does
+        // not truncate, and `-shortest` still stops at the video.
+        //
+        // Safe beside `-c:a pcm_s16le` above but not beside `-c:a copy`: a
+        // filter cannot be inserted into a stream that is not being decoded.
+        // Nothing here copies audio.
+        cmd.args(["-apad", "-shortest"]);
     }
 
     // What was done to this file, written into the file.
@@ -623,6 +646,29 @@ impl PipeStderr {
     }
 }
 
+/// Wait for a child, killing it if it has not gone within `grace`.
+///
+/// `Child::wait` has no deadline, and a bare one at the end of an export is
+/// not a safe default: the pair being waited on are two processes joined by a
+/// pipe, and either can be left blocked on the other. Nothing reads the
+/// cancel flag once the progress loop has ended, so a wait that cannot be
+/// bounded is a hang the user cannot get out of.
+fn wait_or_kill(child: &mut std::process::Child, grace: Duration) {
+    let deadline = Instant::now() + grace;
+    loop {
+        // An unwaitable child counts as gone rather than as a reason to spin.
+        if !matches!(child.try_wait(), Ok(None)) {
+            return;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 /// Spawn the pair and stream FFmpeg's progress until it finishes.
 fn pipe_with_progress(
     mut producer: Command,
@@ -653,6 +699,24 @@ fn pipe_with_progress(
             return Err(format!("could not start ffmpeg: {e}"));
         }
     };
+    // Let go of the pipe.
+    //
+    // `consumer` still holds the read end that was handed to it as stdin —
+    // `spawn` duplicates the handle for the child and leaves the original in
+    // the `Command`. While this function owns that `Command`, *this* process
+    // is a second reader of the pipe, so when ffmpeg exits vspipe does not
+    // see a broken pipe: it blocks in a write that can never complete, and
+    // the `prod.wait()` below never returns. The export then hangs after the
+    // video is finished and correct, with no log written and nothing left
+    // checking the cancel flag, so "force end" has nothing to act on either.
+    //
+    // `-apad` beside `-shortest` in `encode_command` means ffmpeg no longer
+    // ends on the audio, so it should now read its input to the end. That
+    // makes this a belt-and-braces measure rather than the live fix it was,
+    // and it stays either way: ffmpeg stopping early for any other reason —
+    // an encoder failing, a full disk, a kill from outside — puts the pair
+    // back in exactly this position.
+    drop(consumer);
 
     let cons_err = crate::run::drain_to_string(cons.stderr.take().expect("stderr is piped"));
     let stdout = cons.stdout.take().expect("stdout is piped");
@@ -709,8 +773,15 @@ fn pipe_with_progress(
         }
     }
 
-    let _ = cons.wait();
-    let _ = prod.wait();
+    // ffmpeg's stdout is at EOF, so it has written its trailer and is on its
+    // way out; the grace is for a large file's final flush.
+    wait_or_kill(&mut cons, Duration::from_secs(30));
+    // vspipe has no reason to outlive the program reading it, and by here the
+    // output file is already written. `drop(consumer)` above is what lets it
+    // notice; this is the backstop, because a bare `wait()` here is a hang
+    // with no way out — the loop above is the only place the cancel flag is
+    // read, and it has ended.
+    wait_or_kill(&mut prod, Duration::from_secs(10));
 
     let producer_stderr = prod_err.recv_timeout(Duration::from_secs(5)).unwrap_or_default();
     let consumer_stderr = cons_err.recv_timeout(Duration::from_secs(5)).unwrap_or_default();
@@ -799,5 +870,89 @@ mod meta_tests {
     #[test]
     fn whitespace_around_a_good_date_is_fine() {
         assert_eq!(iso_date("  2001-05-04 ").as_deref(), Some("2001-05-04T00:00:00Z"));
+    }
+}
+
+#[cfg(test)]
+mod pipe_tests {
+    use super::*;
+
+    /// A shell, because these tests need two real processes joined by a pipe
+    /// and the system shell is the only program guaranteed to be present.
+    #[cfg(windows)]
+    fn shell(script: &str) -> Command {
+        let mut c = crate::run::command("cmd");
+        c.args(["/c", script]);
+        c
+    }
+
+    #[cfg(not(windows))]
+    fn shell(script: &str) -> Command {
+        let mut c = crate::run::command("sh");
+        c.args(["-c", script]);
+        c
+    }
+
+    /// A consumer that stops reading must not be able to hang the export.
+    /// It is how this bug first arrived — `-shortest` ended ffmpeg as soon as
+    /// the audio ran out, which on a capture whose sound is a fraction of a
+    /// second short of its picture is every time — and `-apad` has since
+    /// removed that particular cause. Any other early exit (a failing
+    /// encoder, a full disk, a kill from outside) leaves the producer with
+    /// frames still in hand in the same way, so the reaping is what is tested
+    /// here rather than the reason for it.
+    ///
+    /// Without the `drop(consumer)` in `pipe_with_progress` this never
+    /// returns: the read end of the pipe stays open in this process, so the
+    /// producer's write never fails and the wait never ends.
+    #[test]
+    fn a_producer_left_writing_into_a_dead_consumer_is_reaped() {
+        // Far more than a pipe buffer holds, so the producer is certain to
+        // still be writing when the consumer goes.
+        #[cfg(windows)]
+        let feed = "for /L %i in (1,1,20000) do @echo \
+                    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+        #[cfg(not(windows))]
+        let feed = "for i in $(seq 1 20000); do echo \
+                    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx; done";
+
+        let started = Instant::now();
+        let mut seen = 0usize;
+        let mut report = |_: Phase| seen += 1;
+        let result = pipe_with_progress(
+            shell(feed),
+            // Exits at once, having read nothing.
+            shell("exit 0"),
+            1.0,
+            &mut report,
+            &AtomicBool::new(false),
+        );
+        let took = started.elapsed();
+
+        assert!(result.is_ok(), "{result:?}");
+        assert!(
+            took < Duration::from_secs(20),
+            "took {took:?} — the producer was left blocked on a write"
+        );
+    }
+
+    /// The other half of the same promise: a producer that ends on its own
+    /// still returns promptly, and its stderr comes back.
+    #[test]
+    fn a_normal_end_returns_what_both_halves_said() {
+        let mut report = |_: Phase| {};
+        let stderr = pipe_with_progress(
+            shell("echo to-stderr 1>&2"),
+            shell("exit 0"),
+            1.0,
+            &mut report,
+            &AtomicBool::new(false),
+        )
+        .expect("the pair ran");
+        assert!(
+            stderr.producer.contains("to-stderr"),
+            "producer stderr was {:?}",
+            stderr.producer
+        );
     }
 }

@@ -1,3 +1,36 @@
+## New in 2.0.6
+
+**An export that finished could hang anyway, and now does not.**
+
+On some captures the export reached the end, wrote a complete and correct
+video file, and then never finished: no log appeared beside it, the progress
+page stayed on the last frame, and Force end process had no effect either.
+Waiting did not help, because nothing was still working — the two programs
+that do the encoding were deadlocked against each other, and the app was
+waiting on one of them with no way to give up.
+
+Which captures it happened to looked arbitrary, and was not. It needed a
+source whose sound stops a fraction of a second before its picture, which is
+ordinary in a tape capture and was true of one file here by a sixth of a
+second. The export then ended on the sound rather than the picture, FFmpeg
+stopped reading while VapourSynth still had frames to hand it, and the pipe
+between them was left half-closed. Whether that showed up as a hang or not
+came down to buffering, so the same file could export cleanly to one format
+and hang on another.
+
+Both halves are fixed. The pipe is now released as soon as it is handed over,
+so the program feeding it always learns when nobody is reading, and the waits
+at the end of an export can no longer be unbounded — a render that will not
+end is stopped rather than waited on forever.
+
+**The picture now decides how long the file is.** When the sound runs short of
+the picture, the shortfall becomes silence at the end and every captured frame
+is kept. Previously the video was trimmed back to the length of the audio
+instead, which on that same capture threw away the last ten frames. This also
+removes a check that could reject a perfectly good export: a capture whose
+sound was several seconds short of its picture would have been failed as "the
+render did not finish".
+
 ## New in 2.0.5
 
 **Film transfers now come out clean, and you can overrule the film check.**
