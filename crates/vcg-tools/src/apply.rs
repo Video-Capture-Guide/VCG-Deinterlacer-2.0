@@ -17,12 +17,43 @@ use vcg_core::analysis::edges::{self as edges, Detection};
 use vcg_core::analysis::probe::{DetectedCaptureMethod, DetectedFieldOrder};
 use vcg_core::analysis::Recommendation;
 use vcg_core::config::{
-    CaptureMethod, ColorCorrection, Config, CropPreset, DehaloMode, FieldOrder,
-    Mode,
-    NoiseLevel, SourceClassification,
+    CaptureMethod, ColorCorrection, Config, CropPreset, DehaloMode, FieldOrder, FilmRate,
+    Mode, NoiseLevel, ScanType, SourceClassification,
 };
 
 use crate::probe::{Options, Report};
+
+/// What the scan concluded the fields are.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DetectedScan {
+    pub scan: ScanType,
+    /// The projector speed, when `scan` is a home movie.
+    pub rate: Option<FilmRate>,
+}
+
+/// The scan type the report supports, or `None` when the film check did not
+/// run at all.
+///
+/// The cadence reading outranks the pulldown reading. A home movie's three-
+/// and four-field frames repeat fields, and on a tape with enough still
+/// shots those repeats cross idet's 3:2 bar — so when both fire, the one
+/// that measured the projector's own rhythm is the one that read the tape.
+pub fn detected_scan(report: &Report) -> Option<DetectedScan> {
+    if let Some(c) = &report.cadence
+        && let Some(rate) = c.rate
+    {
+        return Some(DetectedScan { scan: ScanType::HomeMovie, rate: Some(rate) });
+    }
+    let t = report.telecine.as_ref()?;
+    Some(DetectedScan {
+        scan: if !t.progressive_source && t.pattern.is_some() {
+            ScanType::Telecine
+        } else {
+            ScanType::Video
+        },
+        rate: None,
+    })
+}
 
 /// Which probes a mode needs.
 ///
@@ -196,20 +227,27 @@ fn apply_structural(config: &mut Config, report: &Report) {
 
     // Measured scan type outranks the container, because the container is
     // frequently wrong or silent and this was read off the picture.
-    if let Some(t) = &report.telecine {
-        if t.progressive_source {
-            config.field_order = FieldOrder::Progressive;
-        }
-        // A manual film-versus-video choice outranks the measurement, and
-        // keeps outranking it: this function runs again on every mode change,
-        // so without the guard the user's answer would be overwritten by the
-        // detection a second after they gave it.
-        //
-        // 3:2 and 2:2 are both inverse telecine; the .vpy generator picks the
-        // right handling from the video standard, so the pattern itself does
-        // not need carrying into the config.
-        if !config.ivtc_user_override {
-            config.ivtc_mode = !t.progressive_source && t.pattern.is_some();
+    if let Some(t) = &report.telecine
+        && t.progressive_source
+    {
+        config.field_order = FieldOrder::Progressive;
+    }
+
+    // A manual scan-type choice outranks the measurement, and keeps
+    // outranking it: this function runs again on every mode change, so
+    // without the guard the user's answer would be overwritten by the
+    // detection a second after they gave it.
+    //
+    // 3:2 and 2:2 are both inverse telecine; the .vpy generator picks the
+    // right handling from the video standard, so the pattern itself does
+    // not need carrying into the config. A home movie's projector speed
+    // does: it is the one number the repair is built on.
+    if !config.ivtc_user_override
+        && let Some(found) = detected_scan(report)
+    {
+        config.set_scan_type(found.scan);
+        if let Some(rate) = found.rate {
+            config.home_movie_rate = rate;
         }
     }
 }

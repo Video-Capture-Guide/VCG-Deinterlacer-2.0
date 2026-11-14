@@ -53,6 +53,28 @@ struct ChoicePage {
     details: &'static [&'static str],
 }
 
+/// Give a cast correction the amounts it corrects by.
+///
+/// The Color tint options set only *which* correction runs; the U and V
+/// shifts are a measurement, and they live in the report. Automatic mode
+/// and the Check page's Apply toggle both copied them across, but choosing
+/// "Remove the measured cast" on this page did not — so in Full control the
+/// option was selected, the script said "shifting U by 0.0", and the
+/// picture did not move. Called after every choice on that page: the two
+/// cast options take the measured shift, the others carry none, so an
+/// amount can never outlive the option that uses it.
+pub(crate) fn sync_cast_amounts(config: &mut Config, report: Option<&vcg_tools::probe::Report>) {
+    let measured = report.and_then(|r| r.color.as_ref());
+    let (u, v) = match (config.color_correction, measured) {
+        (ColorCorrection::AutoFix | ColorCorrection::AutoFixBoost, Some(c)) => {
+            (c.u_correction, c.v_correction)
+        }
+        _ => (0.0, 0.0),
+    };
+    config.u_correction = u;
+    config.v_correction = v;
+}
+
 /// Render the Settings page for `step`, or `None` if it is not one of these.
 pub fn settings_page(ui: &mut egui::Ui, app: &mut App, step: Step) -> Option<PageAction> {
     let action = PageAction::default();
@@ -88,6 +110,9 @@ pub fn settings_page(ui: &mut egui::Ui, app: &mut App, step: Step) -> Option<Pag
         for (i, opt) in page.options.iter().enumerate() {
             if option_row(ui, inner, i == current, opt, i == recommended_index(app, step)) {
                 (page.set)(&mut app.config, i);
+                if step == Step::ColorTint {
+                    sync_cast_amounts(&mut app.config, app.report.as_ref());
+                }
             }
         }
     });
@@ -862,9 +887,15 @@ fn analysis_for(app: &App, step: Step) -> Option<Analysis> {
                     measurement: format!(
                         "A consistent {cast:?} cast across the whole tape. Neutral gray is \
                          128 on both color axes; this video averages {:.1} on U and {:.1} \
-                         on V, which is {:+.1} and {:+.1} away.",
-                        128.0 + c.u_correction,
-                        128.0 + c.v_correction,
+                         on V, which is {:+.1} and {:+.1} away. The correction shifts \
+                         them back by {:+.1} and {:+.1}.",
+                        // The averages and offsets as measured — not rebuilt
+                        // from the correction, which is their negation and
+                        // used to put the cast on the wrong side of neutral.
+                        c.u_avg,
+                        c.v_avg,
+                        c.u_offset,
+                        c.v_offset,
                         c.u_correction,
                         c.v_correction
                     ),
@@ -2051,6 +2082,45 @@ fn wrapped(ui: &mut egui::Ui, text: &str, size: f32, color: egui::Color32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What the Color tint page's radio must do beyond setting the enum.
+    /// Reported as "the color cast doesn't seem to do anything": the option
+    /// was selected, the script said "shifting U by 0.0", and nothing moved.
+    #[test]
+    fn choosing_a_cast_correction_on_the_page_takes_the_measured_amounts() {
+        use vcg_core::analysis::classify::{ColorCast, ColorData};
+        let report = vcg_tools::probe::Report {
+            color: Some(ColorData {
+                u_avg: 114.9,
+                v_avg: 142.6,
+                sat_avg: 60.0,
+                u_offset: -13.1,
+                v_offset: 14.6,
+                u_std: 1.0,
+                v_std: 1.0,
+                color_cast: Some(ColorCast::RedMagenta),
+                sat_issue: None,
+                u_correction: 13.1,
+                v_correction: -14.6,
+            }),
+            ..Default::default()
+        };
+        let page = page_for(Step::ColorTint).expect("a choice page");
+
+        for (i, expect) in [(1, (13.1, -14.6)), (2, (13.1, -14.6)), (3, (0.0, 0.0)), (0, (0.0, 0.0))] {
+            let mut c = Config::default();
+            (page.set)(&mut c, i);
+            sync_cast_amounts(&mut c, Some(&report));
+            assert_eq!((c.u_correction, c.v_correction), expect, "option {i}");
+        }
+
+        // No report at all: the option stays chosen, the amount is honest.
+        let mut c = Config::default();
+        (page.set)(&mut c, 1);
+        sync_cast_amounts(&mut c, None);
+        assert_eq!(c.color_correction, ColorCorrection::AutoFix);
+        assert_eq!((c.u_correction, c.v_correction), (0.0, 0.0));
+    }
 
     /// The exact contradiction a user reported: the graph said everything
     /// was inside the legal range while the card beside it said the picture

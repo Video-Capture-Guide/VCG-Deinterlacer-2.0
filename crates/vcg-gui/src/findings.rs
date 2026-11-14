@@ -13,7 +13,7 @@ use vcg_core::analysis::classify::{
 };
 use vcg_core::analysis::halo::HaloLevel;
 use vcg_core::analysis::idet::Pattern;
-use vcg_core::config::{Config, LevelsAdjustment, Mode, NoiseLevel, VideoFormat};
+use vcg_core::config::{Config, LevelsAdjustment, Mode, NoiseLevel, ScanType, VideoFormat};
 use vcg_tools::probe::Report;
 
 use crate::nav::Step;
@@ -333,25 +333,77 @@ fn interlacing(report: &Report, config: &Config) -> Finding {
         Pattern::ThreeTwo
     });
 
-    // What was measured, said once. Both branches below report the same scan;
-    // they differ only in what is being done about it.
+    // What was measured, said once. Every branch below reports the same
+    // scan; they differ only in what is being done about it.
+    let cadence = report.cadence.as_ref();
     let measured = format!(
-        "{} film window(s) of {} · {:.0}% progressive · {:.0}% repeated fields",
+        "{} film window(s) of {} · {:.0}% progressive · {:.0}% repeated fields{}",
         t.film_windows,
         t.windows,
         t.prog_ratio * 100.0,
-        t.rep_ratio * 100.0
+        t.rep_ratio * 100.0,
+        match cadence {
+            Some(c) if c.film_windows > 0 => format!(
+                " · projector rhythm at {:.1} fps in {} of {} window(s)",
+                c.fps, c.film_windows, c.windows
+            ),
+            Some(c) if c.other_windows > 0 => format!(
+                " · a steady film rhythm, not a projector's, in {} window(s)",
+                c.other_windows
+            ),
+            _ => String::new(),
+        }
     );
     // The user's answer and the scan's can disagree, and when they do the
     // details panel has to say so. Otherwise the numbers on screen argue
     // against the action beside them with nothing to explain the gap.
-    let overridden = config.ivtc_user_override && config.ivtc_mode != t.detected();
+    let found = vcg_tools::apply::detected_scan(report).map(|d| d.scan);
+    let overridden = config.ivtc_user_override && found != Some(config.scan_type());
+    let found_name = match found {
+        Some(ScanType::Telecine) => "a film pulldown",
+        Some(ScanType::HomeMovie) => "a home-movie projector rhythm",
+        _ => "ordinary video",
+    };
 
     // The configuration decides, not the measurement: on an overridden file
     // these are not the same answer, and this card describes what the export
     // will actually do.
-    match config.ivtc_mode {
-        true => Finding {
+    match config.scan_type() {
+        ScanType::HomeMovie => Finding {
+            check: Check::Interlacing,
+            title: "Interlacing lines".into(),
+            tag: Tag::Required,
+            tag_text: Some("Home movie — required".into()),
+            explanation: "This was shot on 8 mm or Super 8 film and transferred \
+                          to tape by filming the projected picture. Each film \
+                          frame was recorded onto three or four video fields, \
+                          with a blurred field wherever the projector changed \
+                          frames mid-exposure. One clean frame is kept per film \
+                          frame and the repeats and blurs are dropped."
+                .into(),
+            action: Some(format!(
+                "rebuild the film frames at the projector's {} frames per second",
+                config.home_movie_rate.fps()
+            )),
+            details: format!(
+                "No pulldown removal · {measured} → home-movie transfer; sRestore at {} fps.{}",
+                config.home_movie_rate.fps(),
+                if overridden {
+                    format!(" The scan read this as {found_name}; you chose home movie by hand.")
+                } else {
+                    String::new()
+                }
+            ),
+            note: None,
+            notice_title: "Movement looks jagged".into(),
+            notice_text: "Anything that moves shows comb-like lines on a computer or phone."
+                .into(),
+            meaning: Some(WHAT_INTERLACING_MEANS.into()),
+            film_line: Some(
+                "This is a home movie filmed off a projector, so the original film frames are rebuilt at the projector's speed.".into(),
+            ),
+        },
+        ScanType::Telecine => Finding {
             check: Check::Interlacing,
             title: "Interlacing lines".into(),
             tag: Tag::Required,
@@ -372,9 +424,9 @@ fn interlacing(report: &Report, config: &Config) -> Finding {
                     Pattern::TwoTwo => "2:2",
                 },
                 if overridden {
-                    " The scan found no consistent pulldown; you chose film by hand."
+                    format!(" The scan read this as {found_name}; you chose film by hand.")
                 } else {
-                    ""
+                    String::new()
                 }
             ),
             note: None,
@@ -386,7 +438,7 @@ fn interlacing(report: &Report, config: &Config) -> Finding {
                 "Parts of this video came from film, so we'll also undo the film-to-video conversion.".into(),
             ),
         },
-        false => Finding {
+        ScanType::Video => Finding {
             check: Check::Interlacing,
             title: "Interlacing lines".into(),
             tag: Tag::Required,
@@ -400,9 +452,9 @@ fn interlacing(report: &Report, config: &Config) -> Finding {
             details: format!(
                 "No pulldown removal · {measured} → treated as video.{}",
                 if overridden {
-                    " The scan read this as a film transfer; you chose video by hand."
+                    format!(" The scan read this as {found_name}; you chose video by hand.")
                 } else {
-                    ""
+                    String::new()
                 }
             ),
             note: None,

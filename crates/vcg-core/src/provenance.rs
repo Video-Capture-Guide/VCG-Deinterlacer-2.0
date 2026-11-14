@@ -37,6 +37,10 @@ pub fn summary(config: &Config, version: &str) -> String {
     parts.push(match config.field_order {
         FieldOrder::Progressive => "progressive source, not deinterlaced".to_string(),
         _ if config.ivtc_mode => "inverse telecine (pulldown removed)".to_string(),
+        _ if config.home_movie => format!(
+            "home-movie film transfer, QTGMC bob then sRestore to {} fps",
+            config.home_movie_rate.fps()
+        ),
         // The implementation is named, not just the settings. Two exports of
         // the same file with the same settings can differ by 16% in encoded
         // size depending on which QTGMC produced them — measured on a Hi8

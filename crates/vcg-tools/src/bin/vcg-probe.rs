@@ -306,6 +306,39 @@ fn print_report(r: &Report, elapsed: std::time::Duration) {
         },
     }
 
+    match &r.cadence {
+        None => {}
+        Some(c) => row(
+            "cadence",
+            match c.rate {
+                Some(rate) => format!(
+                    "home-movie projector rhythm at {:.1} fps in {} of {} window{} \
+                     -> bob and sRestore to {} fps (outranks the pulldown reading)",
+                    c.fps,
+                    c.film_windows,
+                    c.windows,
+                    if c.windows == 1 { "" } else { "s" },
+                    rate.fps(),
+                ),
+                None if c.film_windows > 0 => format!(
+                    "projector rhythm at {:.1} fps in only {} of {} windows — not acted on",
+                    c.fps, c.film_windows, c.windows
+                ),
+                None if c.other_windows > 0 => format!(
+                    "a steady film rhythm at a telecine or video rate in {} of {} window{}",
+                    c.other_windows,
+                    c.windows,
+                    if c.windows == 1 { "" } else { "s" },
+                ),
+                None => format!(
+                    "no steady film rhythm ({} window{})",
+                    c.windows,
+                    if c.windows == 1 { "" } else { "s" }
+                ),
+            },
+        ),
+    }
+
     match &r.levels {
         None => row("levels", "not checked".to_string()),
         Some(l) => {

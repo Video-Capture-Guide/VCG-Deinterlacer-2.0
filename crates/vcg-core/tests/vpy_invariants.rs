@@ -1261,3 +1261,86 @@ fn denoising_off_emits_no_denoise_at_all() {
     assert!(!s.contains("BM3Dv2"), "{s}");
     assert!(!s.contains("KNLMeansCL"), "{s}");
 }
+
+// ── Home movies ─────────────────────────────────────────────────────────────
+
+#[test]
+fn a_home_movie_is_bobbed_and_then_handed_to_srestore_at_the_projectors_rate() {
+    use vcg_core::config::FilmRate;
+    let s = script(&Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps18,
+        ..Config::default()
+    });
+    // Always double-rate, whatever the fps choice says: sRestore needs
+    // every field on its own.
+    assert!(s.contains("FPSDivisor=1"), "{s}");
+    assert!(!s.contains("FPSDivisor=2"));
+    assert!(s.contains("clip = haf.srestore(clip, frate=18)"), "{s}");
+    assert!(s.contains("core.std.AssumeFPS(clip, fpsnum=18, fpsden=1)"), "{s}");
+    assert!(pos(&s, "haf.srestore(") < pos(&s, "AssumeFPS(clip, fpsnum=18"));
+    assert!(pos(&s, "haf.QTGMC(") < pos(&s, "haf.srestore("));
+    // Not the telecine path.
+    assert!(!s.contains("core.vivtc.VFM"));
+    assert!(!s.contains("VDecimate"));
+}
+
+#[test]
+fn a_home_movie_overrides_a_single_rate_choice() {
+    let s = script(&Config {
+        home_movie: true,
+        double_rate: false,
+        ..Config::default()
+    });
+    assert!(s.contains("FPSDivisor=1"), "{s}");
+    assert!(s.contains("haf.srestore("));
+}
+
+#[test]
+fn the_projector_speed_reaches_srestore_and_the_muxer() {
+    use vcg_core::config::FilmRate;
+    use vcg_core::ffmpeg::output_frame_rate;
+    for (rate, fps) in [
+        (FilmRate::Fps16, "16"),
+        (FilmRate::Fps18, "18"),
+        (FilmRate::Fps24, "24"),
+    ] {
+        let config = Config { home_movie: true, home_movie_rate: rate, ..Config::default() };
+        let s = script(&config);
+        assert!(s.contains(&format!("haf.srestore(clip, frate={fps})")), "{rate:?}: {s}");
+        assert_eq!(output_frame_rate(&config), fps, "{rate:?}: the muxer disagrees");
+    }
+}
+
+#[test]
+fn the_jetpack_deinterlacer_still_imports_havsfunc_for_srestore() {
+    use vcg_core::config::QtgmcImpl;
+    // vs-jetpack has no sRestore, so the home-movie path needs havsfunc
+    // whichever deinterlacer bobs the fields.
+    let s = script(&Config {
+        home_movie: true,
+        qtgmc_impl: QtgmcImpl::Modern,
+        ..Config::default()
+    });
+    assert!(s.contains("import havsfunc as haf"), "{s}");
+    assert!(pos(&s, "import havsfunc as haf") < pos(&s, "haf.srestore("));
+    assert!(s.contains("_vcg_qtgmc"), "the bob is still jetpack's: {s}");
+    // And a video source in jetpack mode does not pay for the import.
+    let video = script(&Config { qtgmc_impl: QtgmcImpl::Modern, ..Config::default() });
+    assert!(!video.contains("import havsfunc"));
+}
+
+#[test]
+fn a_video_source_never_calls_srestore() {
+    assert!(!script(&Config::default()).contains("srestore"));
+    assert!(!script(&Config { ivtc_mode: true, ..Config::default() }).contains("srestore"));
+}
+
+#[test]
+fn the_stage_preview_leaves_srestore_out_so_frame_numbers_still_match() {
+    use vcg_core::vpy::{generate_stage_preview_vpy, PreviewStage};
+    let config = Config { home_movie: true, ..Config::default() };
+    let s = generate_stage_preview_vpy(&config, &deps(), PreviewStage::Noise, true);
+    assert!(!s.contains("srestore"), "{s}");
+    assert!(s.contains("haf.QTGMC("));
+}

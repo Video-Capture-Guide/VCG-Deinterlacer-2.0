@@ -799,3 +799,129 @@ fn udif_and_vdif_are_parsed() {
     // UDIF must not be mistaken for YDIF by the substring match.
     assert_eq!(r.ydif, vec![6.0]);
 }
+
+// ── Film cadence ────────────────────────────────────────────────────────────
+//
+// The fixtures are one 240-field window each of real ffmpeg output from the
+// `idet,yadif=mode=1,signalstats,metadata=print` chain the probe runs: a
+// Super 8 home movie filmed off a projector onto VHS, a 3:2 telecined
+// broadcast, an ordinary MiniDV camcorder tape, and a window of video-rate
+// progressive content inside the telecined file.
+
+use vcg_core::analysis::cadence::{self, CadenceWindow};
+use vcg_core::config::FilmRate;
+
+fn cadence_window(name: &str) -> CadenceWindow {
+    let diffs = cadence::field_diffs(&fixture(name));
+    assert_eq!(diffs.len(), 241, "{name}: every field's difference is read");
+    CadenceWindow::measure(&diffs).expect("enough fields to measure")
+}
+
+#[test]
+fn field_diffs_reads_every_ydif_in_order_and_nothing_else() {
+    let diffs = cadence::field_diffs(&fixture("cadence_super8_18fps.txt"));
+    // The first field has nothing before it.
+    assert_eq!(diffs[0], 0.0);
+    assert!(diffs.iter().all(|d| d.is_finite() && *d >= 0.0));
+    // idet's summaries and the progress lines in the same stderr carry `=`
+    // too, and none of them is a field difference.
+    assert_eq!(cadence::field_diffs(&fixture("idet_vhs.txt")).len(), 0);
+}
+
+#[test]
+fn a_super8_transfer_has_a_coherent_rhythm_near_18_fps() {
+    let w = cadence_window("cadence_super8_18fps.txt");
+    assert!(w.is_coherent(), "{w:?}");
+    assert!(w.changes >= 40, "{w:?}");
+    // 59.94 fields a second over a 3.33-field period. The projector on this
+    // tape runs a little fast, as sync motors do; nearest() absorbs that.
+    let fps = w.fps(59.94);
+    assert!((17.5..19.5).contains(&fps), "{fps} fps from {w:?}");
+    assert_eq!(FilmRate::nearest(fps), Some(FilmRate::Fps18));
+}
+
+#[test]
+fn a_32_telecine_has_a_coherent_rhythm_at_24_fps_and_is_not_a_home_movie() {
+    let w = cadence_window("cadence_telecine_32.txt");
+    assert!(w.is_coherent(), "{w:?}");
+    let fps = w.fps(59.94);
+    assert!((23.5..24.5).contains(&fps), "{fps} fps from {w:?}");
+    // 24 is a film rate, but not a home-movie projector's: idet sees the
+    // pulldown and inverse telecine is the better repair.
+    let v = cadence::verdict(&[w, w, w], 59.94);
+    assert_eq!(v.rate, None, "{v:?}");
+    assert_eq!(v.other_windows, 3);
+    assert_eq!(v.film_windows, 0);
+}
+
+#[test]
+fn ordinary_video_has_no_rhythm() {
+    // A camcorder tape: every field differs from the one before by about
+    // the same amount, so there is no floor and no changes stand out of it.
+    let w = cadence_window("cadence_video.txt");
+    assert!(!w.is_coherent(), "{w:?}");
+    assert_eq!(cadence::verdict(&[w], 59.94).rate, None);
+}
+
+#[test]
+fn video_rate_progressive_content_is_a_rhythm_at_30_not_a_home_movie() {
+    let w = cadence_window("cadence_progressive_30.txt");
+    assert!(w.is_coherent(), "{w:?}");
+    let fps = w.fps(59.94);
+    assert!((29.0..31.0).contains(&fps), "{fps} fps from {w:?}");
+    assert_eq!(FilmRate::nearest(fps), None);
+}
+
+#[test]
+fn too_few_fields_or_changes_say_nothing() {
+    assert!(CadenceWindow::measure(&[0.0; 39]).is_none());
+    // A still shot: nothing clears the floor.
+    let still = CadenceWindow::measure(&[2.0; 240]).expect("enough fields");
+    assert_eq!(still.changes, 0);
+    assert!(!still.is_coherent());
+    assert_eq!(still.fps(59.94), 0.0);
+}
+
+#[test]
+fn a_synthetic_16_fps_transfer_is_read_as_16() {
+    // 50 fields a second over 16 fps is 3.125 fields a frame: a change
+    // every third or fourth field. Built from the pattern, not measured.
+    let mut diffs = vec![2.0; 240];
+    let mut t = 0.0;
+    while t < 240.0 {
+        diffs[t as usize] = 12.0;
+        t += 3.125;
+    }
+    let w = CadenceWindow::measure(&diffs).expect("enough fields");
+    assert!(w.is_coherent(), "{w:?}");
+    let v = cadence::verdict(&[w, w], 50.0);
+    assert_eq!(v.rate, Some(FilmRate::Fps16), "{v:?}");
+}
+
+#[test]
+fn the_verdict_is_a_majority_of_windows_and_more_than_one_of_them() {
+    let film = cadence_window("cadence_super8_18fps.txt");
+    let video = cadence_window("cadence_video.txt");
+
+    // One window alone decides a one-window file…
+    assert_eq!(cadence::verdict(&[film], 59.94).rate, Some(FilmRate::Fps18));
+    // …but one scene in a five-window file is not a tape.
+    assert_eq!(cadence::verdict(&[film, video, video, video, video], 59.94).rate, None);
+    // Half the windows, and at least two: a tape with long still shots.
+    let half = cadence::verdict(&[film, film, video, video], 59.94);
+    assert_eq!(half.rate, Some(FilmRate::Fps18));
+    assert_eq!(half.film_windows, 2);
+    assert_eq!(half.windows, 4);
+    assert!((17.5..19.5).contains(&half.fps), "{half:?}");
+}
+
+#[test]
+fn nearest_projector_speed_tolerates_a_drifting_motor_and_no_more() {
+    assert_eq!(FilmRate::nearest(18.6), Some(FilmRate::Fps18));
+    assert_eq!(FilmRate::nearest(16.9), Some(FilmRate::Fps16));
+    assert_eq!(FilmRate::nearest(17.2), Some(FilmRate::Fps18));
+    assert_eq!(FilmRate::nearest(23.0), Some(FilmRate::Fps24));
+    assert_eq!(FilmRate::nearest(20.5), None);
+    assert_eq!(FilmRate::nearest(30.0), None);
+    assert_eq!(FilmRate::nearest(0.0), None);
+}

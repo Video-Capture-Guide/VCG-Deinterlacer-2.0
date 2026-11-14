@@ -1,0 +1,504 @@
+[aist#0:1/pcm_s16le @ 000001bde650ccc0] Guessed Channel Layout: stereo
+Input #0, avi, from 'D:/Apps/Video Enhancement/VCG Deinterlacer/Sample Videos/DV25_NTSC.avi':
+  Duration: 00:00:25.03, start: 0.000000, bitrate: 30321 kb/s
+  Stream #0:0: Video: dvvideo (dvsd / 0x64737664), yuv411p, 720x480 [SAR 8:9 DAR 4:3], 28771 kb/s, 29.97 fps, 29.97 tbr, 29.97 tbn
+  Stream #0:1: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 48000 Hz, stereo, s16, 1536 kb/s
+[Parsed_idet_0 @ 000001bde653c800] Repeated Fields: Neither:     0 Top:     0 Bottom:     0
+[Parsed_idet_0 @ 000001bde653c800] Single frame detection: TFF:     0 BFF:     0 Progressive:     0 Undetermined:     0
+[Parsed_idet_0 @ 000001bde653c800] Multi frame detection: TFF:     0 BFF:     0 Progressive:     0 Undetermined:     0
+Stream mapping:
+  Stream #0:0 -> #0:0 (dvvideo (native) -> wrapped_avframe (native))
+Press [q] to stop, [?] for help
+[Parsed_metadata_3 @ 000001bde6538140] frame:0    pts:0       pts_time:0
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=0
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf62.12.100
+  Stream #0:0: Video: wrapped_avframe, yuv411p(progressive), 720x480 [SAR 8:9 DAR 4:3], q=2-31, 200 kb/s, 59.94 fps, 59.94 tbn
+    Metadata:
+      encoder         : Lavc62.28.100 wrapped_avframe
+[Parsed_metadata_3 @ 000001bde6538140] frame:1    pts:1       pts_time:0.0166833
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.88652
+[Parsed_metadata_3 @ 000001bde6538140] frame:2    pts:2       pts_time:0.0333667
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.83455
+[Parsed_metadata_3 @ 000001bde6538140] frame:3    pts:3       pts_time:0.05005
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.51575
+[Parsed_metadata_3 @ 000001bde6538140] frame:4    pts:4       pts_time:0.0667333
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.47782
+[Parsed_metadata_3 @ 000001bde6538140] frame:5    pts:5       pts_time:0.0834167
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.25384
+[Parsed_metadata_3 @ 000001bde6538140] frame:6    pts:6       pts_time:0.1001
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.74614
+[Parsed_metadata_3 @ 000001bde6538140] frame:7    pts:7       pts_time:0.116783
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.77383
+[Parsed_metadata_3 @ 000001bde6538140] frame:8    pts:8       pts_time:0.133467
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.11088
+[Parsed_metadata_3 @ 000001bde6538140] frame:9    pts:9       pts_time:0.15015
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.58007
+[Parsed_metadata_3 @ 000001bde6538140] frame:10   pts:10      pts_time:0.166833
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.71607
+[Parsed_metadata_3 @ 000001bde6538140] frame:11   pts:11      pts_time:0.183517
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.0915
+[Parsed_metadata_3 @ 000001bde6538140] frame:12   pts:12      pts_time:0.2002
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.47993
+[Parsed_metadata_3 @ 000001bde6538140] frame:13   pts:13      pts_time:0.216883
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.48646
+[Parsed_metadata_3 @ 000001bde6538140] frame:14   pts:14      pts_time:0.233567
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.62255
+[Parsed_metadata_3 @ 000001bde6538140] frame:15   pts:15      pts_time:0.25025
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.18485
+[Parsed_metadata_3 @ 000001bde6538140] frame:16   pts:16      pts_time:0.266933
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.30983
+[Parsed_metadata_3 @ 000001bde6538140] frame:17   pts:17      pts_time:0.283617
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.3103
+[Parsed_metadata_3 @ 000001bde6538140] frame:18   pts:18      pts_time:0.3003
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.75929
+[Parsed_metadata_3 @ 000001bde6538140] frame:19   pts:19      pts_time:0.316983
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.95049
+[Parsed_metadata_3 @ 000001bde6538140] frame:20   pts:20      pts_time:0.333667
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.31897
+[Parsed_metadata_3 @ 000001bde6538140] frame:21   pts:21      pts_time:0.35035
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.39437
+[Parsed_metadata_3 @ 000001bde6538140] frame:22   pts:22      pts_time:0.367033
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.81201
+[Parsed_metadata_3 @ 000001bde6538140] frame:23   pts:23      pts_time:0.383717
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.16582
+[Parsed_metadata_3 @ 000001bde6538140] frame:24   pts:24      pts_time:0.4004
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.45657
+[Parsed_metadata_3 @ 000001bde6538140] frame:25   pts:25      pts_time:0.417083
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.65572
+[Parsed_metadata_3 @ 000001bde6538140] frame:26   pts:26      pts_time:0.433767
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.529
+[Parsed_metadata_3 @ 000001bde6538140] frame:27   pts:27      pts_time:0.45045
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.83148
+[Parsed_metadata_3 @ 000001bde6538140] frame:28   pts:28      pts_time:0.467133
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.21301
+[Parsed_metadata_3 @ 000001bde6538140] frame:29   pts:29      pts_time:0.483817
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.31835
+[Parsed_metadata_3 @ 000001bde6538140] frame:30   pts:30      pts_time:0.5005
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.7665
+[Parsed_metadata_3 @ 000001bde6538140] frame:31   pts:31      pts_time:0.517183
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.57576
+[Parsed_metadata_3 @ 000001bde6538140] frame:32   pts:32      pts_time:0.533867
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.88813
+[Parsed_metadata_3 @ 000001bde6538140] frame:33   pts:33      pts_time:0.55055
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.20047
+[Parsed_metadata_3 @ 000001bde6538140] frame:34   pts:34      pts_time:0.567233
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.56815
+[Parsed_metadata_3 @ 000001bde6538140] frame:35   pts:35      pts_time:0.583917
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.5105
+[Parsed_metadata_3 @ 000001bde6538140] frame:36   pts:36      pts_time:0.6006
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.85373
+[Parsed_metadata_3 @ 000001bde6538140] frame:37   pts:37      pts_time:0.617283
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.48326
+[Parsed_metadata_3 @ 000001bde6538140] frame:38   pts:38      pts_time:0.633967
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.81658
+[Parsed_metadata_3 @ 000001bde6538140] frame:39   pts:39      pts_time:0.65065
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.65784
+[Parsed_metadata_3 @ 000001bde6538140] frame:40   pts:40      pts_time:0.667333
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.7872
+[Parsed_metadata_3 @ 000001bde6538140] frame:41   pts:41      pts_time:0.684017
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.90837
+[Parsed_metadata_3 @ 000001bde6538140] frame:42   pts:42      pts_time:0.7007
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.38163
+[Parsed_metadata_3 @ 000001bde6538140] frame:43   pts:43      pts_time:0.717383
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.46736
+[Parsed_metadata_3 @ 000001bde6538140] frame:44   pts:44      pts_time:0.734067
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.78715
+[Parsed_metadata_3 @ 000001bde6538140] frame:45   pts:45      pts_time:0.75075
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.09932
+[Parsed_metadata_3 @ 000001bde6538140] frame:46   pts:46      pts_time:0.767433
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.28955
+[Parsed_metadata_3 @ 000001bde6538140] frame:47   pts:47      pts_time:0.784117
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.5731
+[Parsed_metadata_3 @ 000001bde6538140] frame:48   pts:48      pts_time:0.8008
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.86987
+[Parsed_metadata_3 @ 000001bde6538140] frame:49   pts:49      pts_time:0.817483
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.51962
+[Parsed_metadata_3 @ 000001bde6538140] frame:50   pts:50      pts_time:0.834167
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.21071
+[Parsed_metadata_3 @ 000001bde6538140] frame:51   pts:51      pts_time:0.85085
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.53958
+[Parsed_metadata_3 @ 000001bde6538140] frame:52   pts:52      pts_time:0.867533
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.93069
+[Parsed_metadata_3 @ 000001bde6538140] frame:53   pts:53      pts_time:0.884217
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.87671
+[Parsed_metadata_3 @ 000001bde6538140] frame:54   pts:54      pts_time:0.9009
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.03727
+[Parsed_metadata_3 @ 000001bde6538140] frame:55   pts:55      pts_time:0.917583
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.42968
+[Parsed_metadata_3 @ 000001bde6538140] frame:56   pts:56      pts_time:0.934267
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.69306
+[Parsed_metadata_3 @ 000001bde6538140] frame:57   pts:57      pts_time:0.95095
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.6458
+[Parsed_metadata_3 @ 000001bde6538140] frame:58   pts:58      pts_time:0.967633
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.23485
+[Parsed_metadata_3 @ 000001bde6538140] frame:59   pts:59      pts_time:0.984317
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.86468
+[Parsed_metadata_3 @ 000001bde6538140] frame:60   pts:60      pts_time:1.001
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.25355
+[Parsed_metadata_3 @ 000001bde6538140] frame:61   pts:61      pts_time:1.017683
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.60393
+[Parsed_metadata_3 @ 000001bde6538140] frame:62   pts:62      pts_time:1.034367
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.63659
+[Parsed_metadata_3 @ 000001bde6538140] frame:63   pts:63      pts_time:1.05105
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.84699
+[Parsed_metadata_3 @ 000001bde6538140] frame:64   pts:64      pts_time:1.067733
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.1096
+[Parsed_metadata_3 @ 000001bde6538140] frame:65   pts:65      pts_time:1.084417
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.48773
+[Parsed_metadata_3 @ 000001bde6538140] frame:66   pts:66      pts_time:1.1011
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.72127
+[Parsed_metadata_3 @ 000001bde6538140] frame:67   pts:67      pts_time:1.117783
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.47386
+[Parsed_metadata_3 @ 000001bde6538140] frame:68   pts:68      pts_time:1.134467
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.2962
+[Parsed_metadata_3 @ 000001bde6538140] frame:69   pts:69      pts_time:1.15115
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.27725
+[Parsed_metadata_3 @ 000001bde6538140] frame:70   pts:70      pts_time:1.167833
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.87981
+[Parsed_metadata_3 @ 000001bde6538140] frame:71   pts:71      pts_time:1.184517
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.77149
+[Parsed_metadata_3 @ 000001bde6538140] frame:72   pts:72      pts_time:1.2012
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.38705
+[Parsed_metadata_3 @ 000001bde6538140] frame:73   pts:73      pts_time:1.217883
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.77034
+[Parsed_metadata_3 @ 000001bde6538140] frame:74   pts:74      pts_time:1.234567
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.93046
+[Parsed_metadata_3 @ 000001bde6538140] frame:75   pts:75      pts_time:1.25125
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.84543
+[Parsed_metadata_3 @ 000001bde6538140] frame:76   pts:76      pts_time:1.267933
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.41845
+[Parsed_metadata_3 @ 000001bde6538140] frame:77   pts:77      pts_time:1.284617
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.07478
+[Parsed_metadata_3 @ 000001bde6538140] frame:78   pts:78      pts_time:1.3013
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.69208
+[Parsed_metadata_3 @ 000001bde6538140] frame:79   pts:79      pts_time:1.317983
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.09233
+[Parsed_metadata_3 @ 000001bde6538140] frame:80   pts:80      pts_time:1.334667
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.13273
+[Parsed_metadata_3 @ 000001bde6538140] frame:81   pts:81      pts_time:1.35135
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.25752
+[Parsed_metadata_3 @ 000001bde6538140] frame:82   pts:82      pts_time:1.368033
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.91512
+[Parsed_metadata_3 @ 000001bde6538140] frame:83   pts:83      pts_time:1.384717
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.60196
+[Parsed_metadata_3 @ 000001bde6538140] frame:84   pts:84      pts_time:1.4014
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.58523
+[Parsed_metadata_3 @ 000001bde6538140] frame:85   pts:85      pts_time:1.418083
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.70525
+[Parsed_metadata_3 @ 000001bde6538140] frame:86   pts:86      pts_time:1.434767
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=6.17495
+[Parsed_metadata_3 @ 000001bde6538140] frame:87   pts:87      pts_time:1.45145
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.04806
+[Parsed_metadata_3 @ 000001bde6538140] frame:88   pts:88      pts_time:1.468133
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.22222
+[Parsed_metadata_3 @ 000001bde6538140] frame:89   pts:89      pts_time:1.484817
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.75132
+[Parsed_metadata_3 @ 000001bde6538140] frame:90   pts:90      pts_time:1.5015
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.82543
+[Parsed_metadata_3 @ 000001bde6538140] frame:91   pts:91      pts_time:1.518183
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.20185
+[Parsed_metadata_3 @ 000001bde6538140] frame:92   pts:92      pts_time:1.534867
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.83004
+[Parsed_metadata_3 @ 000001bde6538140] frame:93   pts:93      pts_time:1.55155
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.19853
+[Parsed_metadata_3 @ 000001bde6538140] frame:94   pts:94      pts_time:1.568233
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.69379
+[Parsed_metadata_3 @ 000001bde6538140] frame:95   pts:95      pts_time:1.584917
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.72346
+[Parsed_metadata_3 @ 000001bde6538140] frame:96   pts:96      pts_time:1.6016
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.48518
+[Parsed_metadata_3 @ 000001bde6538140] frame:97   pts:97      pts_time:1.618283
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.84563
+[Parsed_metadata_3 @ 000001bde6538140] frame:98   pts:98      pts_time:1.634967
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.493
+[Parsed_metadata_3 @ 000001bde6538140] frame:99   pts:99      pts_time:1.65165
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.2651
+[Parsed_metadata_3 @ 000001bde6538140] frame:100  pts:100     pts_time:1.668333
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.75054
+[Parsed_metadata_3 @ 000001bde6538140] frame:101  pts:101     pts_time:1.685017
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.55792
+[Parsed_metadata_3 @ 000001bde6538140] frame:102  pts:102     pts_time:1.7017
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.56773
+[Parsed_metadata_3 @ 000001bde6538140] frame:103  pts:103     pts_time:1.718383
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.72315
+[Parsed_metadata_3 @ 000001bde6538140] frame:104  pts:104     pts_time:1.735067
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.9643
+[Parsed_metadata_3 @ 000001bde6538140] frame:105  pts:105     pts_time:1.75175
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.0577
+[Parsed_metadata_3 @ 000001bde6538140] frame:106  pts:106     pts_time:1.768433
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.67157
+[Parsed_metadata_3 @ 000001bde6538140] frame:107  pts:107     pts_time:1.785117
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.76156
+[Parsed_metadata_3 @ 000001bde6538140] frame:108  pts:108     pts_time:1.8018
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.95685
+[Parsed_metadata_3 @ 000001bde6538140] frame:109  pts:109     pts_time:1.818483
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.64834
+[Parsed_metadata_3 @ 000001bde6538140] frame:110  pts:110     pts_time:1.835167
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.48641
+[Parsed_metadata_3 @ 000001bde6538140] frame:111  pts:111     pts_time:1.85185
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.95413
+[Parsed_metadata_3 @ 000001bde6538140] frame:112  pts:112     pts_time:1.868533
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.78889
+[Parsed_metadata_3 @ 000001bde6538140] frame:113  pts:113     pts_time:1.885217
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.08054
+[Parsed_metadata_3 @ 000001bde6538140] frame:114  pts:114     pts_time:1.9019
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.74685
+[Parsed_metadata_3 @ 000001bde6538140] frame:115  pts:115     pts_time:1.918583
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.64514
+[Parsed_metadata_3 @ 000001bde6538140] frame:116  pts:116     pts_time:1.935267
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.95807
+[Parsed_metadata_3 @ 000001bde6538140] frame:117  pts:117     pts_time:1.95195
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.90912
+[Parsed_metadata_3 @ 000001bde6538140] frame:118  pts:118     pts_time:1.968633
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.13275
+[Parsed_metadata_3 @ 000001bde6538140] frame:119  pts:119     pts_time:1.985317
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.07636
+[Parsed_metadata_3 @ 000001bde6538140] frame:120  pts:120     pts_time:2.002
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.4777
+[Parsed_metadata_3 @ 000001bde6538140] frame:121  pts:121     pts_time:2.018683
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.26398
+[Parsed_metadata_3 @ 000001bde6538140] frame:122  pts:122     pts_time:2.035367
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.06608
+[Parsed_metadata_3 @ 000001bde6538140] frame:123  pts:123     pts_time:2.05205
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.97668
+[Parsed_metadata_3 @ 000001bde6538140] frame:124  pts:124     pts_time:2.068733
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.16523
+[Parsed_metadata_3 @ 000001bde6538140] frame:125  pts:125     pts_time:2.085417
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.29924
+[Parsed_metadata_3 @ 000001bde6538140] frame:126  pts:126     pts_time:2.1021
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.98833
+[Parsed_metadata_3 @ 000001bde6538140] frame:127  pts:127     pts_time:2.118783
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.52584
+[Parsed_metadata_3 @ 000001bde6538140] frame:128  pts:128     pts_time:2.135467
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.40571
+[Parsed_metadata_3 @ 000001bde6538140] frame:129  pts:129     pts_time:2.15215
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.11083
+[Parsed_metadata_3 @ 000001bde6538140] frame:130  pts:130     pts_time:2.168833
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.43782
+[Parsed_metadata_3 @ 000001bde6538140] frame:131  pts:131     pts_time:2.185517
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.86961
+[Parsed_metadata_3 @ 000001bde6538140] frame:132  pts:132     pts_time:2.2022
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.01913
+[Parsed_metadata_3 @ 000001bde6538140] frame:133  pts:133     pts_time:2.218883
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.03506
+[Parsed_metadata_3 @ 000001bde6538140] frame:134  pts:134     pts_time:2.235567
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.84387
+[Parsed_metadata_3 @ 000001bde6538140] frame:135  pts:135     pts_time:2.25225
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.32413
+[Parsed_metadata_3 @ 000001bde6538140] frame:136  pts:136     pts_time:2.268933
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.39992
+[Parsed_metadata_3 @ 000001bde6538140] frame:137  pts:137     pts_time:2.285617
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.27345
+[Parsed_metadata_3 @ 000001bde6538140] frame:138  pts:138     pts_time:2.3023
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.16626
+[Parsed_metadata_3 @ 000001bde6538140] frame:139  pts:139     pts_time:2.318983
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.13511
+[Parsed_metadata_3 @ 000001bde6538140] frame:140  pts:140     pts_time:2.335667
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.56367
+[Parsed_metadata_3 @ 000001bde6538140] frame:141  pts:141     pts_time:2.35235
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.14204
+[Parsed_metadata_3 @ 000001bde6538140] frame:142  pts:142     pts_time:2.369033
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.84146
+[Parsed_metadata_3 @ 000001bde6538140] frame:143  pts:143     pts_time:2.385717
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.34762
+[Parsed_metadata_3 @ 000001bde6538140] frame:144  pts:144     pts_time:2.4024
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.70336
+[Parsed_metadata_3 @ 000001bde6538140] frame:145  pts:145     pts_time:2.419083
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.01549
+[Parsed_metadata_3 @ 000001bde6538140] frame:146  pts:146     pts_time:2.435767
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.99061
+[Parsed_metadata_3 @ 000001bde6538140] frame:147  pts:147     pts_time:2.45245
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.94321
+[Parsed_metadata_3 @ 000001bde6538140] frame:148  pts:148     pts_time:2.469133
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.25752
+[Parsed_metadata_3 @ 000001bde6538140] frame:149  pts:149     pts_time:2.485817
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.51821
+[Parsed_metadata_3 @ 000001bde6538140] frame:150  pts:150     pts_time:2.5025
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.85339
+[Parsed_metadata_3 @ 000001bde6538140] frame:151  pts:151     pts_time:2.519183
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.12538
+[Parsed_metadata_3 @ 000001bde6538140] frame:152  pts:152     pts_time:2.535867
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.30027
+[Parsed_metadata_3 @ 000001bde6538140] frame:153  pts:153     pts_time:2.55255
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.68742
+[Parsed_metadata_3 @ 000001bde6538140] frame:154  pts:154     pts_time:2.569233
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.74737
+[Parsed_metadata_3 @ 000001bde6538140] frame:155  pts:155     pts_time:2.585917
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.9523
+[Parsed_metadata_3 @ 000001bde6538140] frame:156  pts:156     pts_time:2.6026
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.07648
+[Parsed_metadata_3 @ 000001bde6538140] frame:157  pts:157     pts_time:2.619283
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.60975
+[Parsed_metadata_3 @ 000001bde6538140] frame:158  pts:158     pts_time:2.635967
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.7142
+[Parsed_metadata_3 @ 000001bde6538140] frame:159  pts:159     pts_time:2.65265
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.28423
+[Parsed_metadata_3 @ 000001bde6538140] frame:160  pts:160     pts_time:2.669333
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.79871
+[Parsed_metadata_3 @ 000001bde6538140] frame:161  pts:161     pts_time:2.686017
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.05215
+[Parsed_metadata_3 @ 000001bde6538140] frame:162  pts:162     pts_time:2.7027
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.0734
+[Parsed_metadata_3 @ 000001bde6538140] frame:163  pts:163     pts_time:2.719383
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.06614
+[Parsed_metadata_3 @ 000001bde6538140] frame:164  pts:164     pts_time:2.736067
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.82426
+[Parsed_metadata_3 @ 000001bde6538140] frame:165  pts:165     pts_time:2.75275
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.17913
+[Parsed_metadata_3 @ 000001bde6538140] frame:166  pts:166     pts_time:2.769433
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.75416
+[Parsed_metadata_3 @ 000001bde6538140] frame:167  pts:167     pts_time:2.786117
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.8903
+[Parsed_metadata_3 @ 000001bde6538140] frame:168  pts:168     pts_time:2.8028
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.91692
+[Parsed_metadata_3 @ 000001bde6538140] frame:169  pts:169     pts_time:2.819483
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.63851
+[Parsed_metadata_3 @ 000001bde6538140] frame:170  pts:170     pts_time:2.836167
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.24397
+[Parsed_metadata_3 @ 000001bde6538140] frame:171  pts:171     pts_time:2.85285
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.6871
+[Parsed_metadata_3 @ 000001bde6538140] frame:172  pts:172     pts_time:2.869533
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.02065
+[Parsed_metadata_3 @ 000001bde6538140] frame:173  pts:173     pts_time:2.886217
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.49441
+[Parsed_metadata_3 @ 000001bde6538140] frame:174  pts:174     pts_time:2.9029
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.58931
+[Parsed_metadata_3 @ 000001bde6538140] frame:175  pts:175     pts_time:2.919583
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.69873
+[Parsed_metadata_3 @ 000001bde6538140] frame:176  pts:176     pts_time:2.936267
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.02894
+[Parsed_metadata_3 @ 000001bde6538140] frame:177  pts:177     pts_time:2.95295
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.56052
+[Parsed_metadata_3 @ 000001bde6538140] frame:178  pts:178     pts_time:2.969633
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.09452
+[Parsed_metadata_3 @ 000001bde6538140] frame:179  pts:179     pts_time:2.986317
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.23664
+[Parsed_metadata_3 @ 000001bde6538140] frame:180  pts:180     pts_time:3.003
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.81076
+[Parsed_metadata_3 @ 000001bde6538140] frame:181  pts:181     pts_time:3.019683
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.54026
+[Parsed_metadata_3 @ 000001bde6538140] frame:182  pts:182     pts_time:3.036367
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.11198
+[Parsed_metadata_3 @ 000001bde6538140] frame:183  pts:183     pts_time:3.05305
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.4024
+[Parsed_metadata_3 @ 000001bde6538140] frame:184  pts:184     pts_time:3.069733
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.75291
+[Parsed_metadata_3 @ 000001bde6538140] frame:185  pts:185     pts_time:3.086417
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.68135
+[Parsed_metadata_3 @ 000001bde6538140] frame:186  pts:186     pts_time:3.1031
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.07344
+[Parsed_metadata_3 @ 000001bde6538140] frame:187  pts:187     pts_time:3.119783
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.87936
+[Parsed_metadata_3 @ 000001bde6538140] frame:188  pts:188     pts_time:3.136467
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.77124
+[Parsed_metadata_3 @ 000001bde6538140] frame:189  pts:189     pts_time:3.15315
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.84527
+[Parsed_metadata_3 @ 000001bde6538140] frame:190  pts:190     pts_time:3.169833
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.7117
+[Parsed_metadata_3 @ 000001bde6538140] frame:191  pts:191     pts_time:3.186517
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.68284
+[Parsed_metadata_3 @ 000001bde6538140] frame:192  pts:192     pts_time:3.2032
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.62657
+[Parsed_metadata_3 @ 000001bde6538140] frame:193  pts:193     pts_time:3.219883
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.61984
+[Parsed_metadata_3 @ 000001bde6538140] frame:194  pts:194     pts_time:3.236567
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.25674
+[Parsed_metadata_3 @ 000001bde6538140] frame:195  pts:195     pts_time:3.25325
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.95465
+[Parsed_metadata_3 @ 000001bde6538140] frame:196  pts:196     pts_time:3.269933
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.61265
+[Parsed_metadata_3 @ 000001bde6538140] frame:197  pts:197     pts_time:3.286617
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.54557
+[Parsed_metadata_3 @ 000001bde6538140] frame:198  pts:198     pts_time:3.3033
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.20181
+[Parsed_metadata_3 @ 000001bde6538140] frame:199  pts:199     pts_time:3.319983
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.72566
+[Parsed_metadata_3 @ 000001bde6538140] frame:200  pts:200     pts_time:3.336667
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.77435
+[Parsed_metadata_3 @ 000001bde6538140] frame:201  pts:201     pts_time:3.35335
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.55892
+[Parsed_metadata_3 @ 000001bde6538140] frame:202  pts:202     pts_time:3.370033
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.70148
+[Parsed_metadata_3 @ 000001bde6538140] frame:203  pts:203     pts_time:3.386717
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.77795
+[Parsed_metadata_3 @ 000001bde6538140] frame:204  pts:204     pts_time:3.4034
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.19584
+[Parsed_metadata_3 @ 000001bde6538140] frame:205  pts:205     pts_time:3.420083
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.53672
+[Parsed_metadata_3 @ 000001bde6538140] frame:206  pts:206     pts_time:3.436767
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.7006
+[Parsed_metadata_3 @ 000001bde6538140] frame:207  pts:207     pts_time:3.45345
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.66495
+[Parsed_metadata_3 @ 000001bde6538140] frame:208  pts:208     pts_time:3.470133
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.03399
+[Parsed_metadata_3 @ 000001bde6538140] frame:209  pts:209     pts_time:3.486817
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.69269
+[Parsed_metadata_3 @ 000001bde6538140] frame:210  pts:210     pts_time:3.5035
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.75104
+[Parsed_metadata_3 @ 000001bde6538140] frame:211  pts:211     pts_time:3.520183
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.28727
+[Parsed_metadata_3 @ 000001bde6538140] frame:212  pts:212     pts_time:3.536867
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.73175
+[Parsed_metadata_3 @ 000001bde6538140] frame:213  pts:213     pts_time:3.55355
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.11865
+[Parsed_metadata_3 @ 000001bde6538140] frame:214  pts:214     pts_time:3.570233
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.3961
+[Parsed_metadata_3 @ 000001bde6538140] frame:215  pts:215     pts_time:3.586917
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.50969
+[Parsed_metadata_3 @ 000001bde6538140] frame:216  pts:216     pts_time:3.6036
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=5.07164
+[Parsed_metadata_3 @ 000001bde6538140] frame:217  pts:217     pts_time:3.620283
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.28859
+[Parsed_metadata_3 @ 000001bde6538140] frame:218  pts:218     pts_time:3.636967
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.65548
+[Parsed_metadata_3 @ 000001bde6538140] frame:219  pts:219     pts_time:3.65365
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.32815
+[Parsed_metadata_3 @ 000001bde6538140] frame:220  pts:220     pts_time:3.670333
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.67499
+[Parsed_metadata_3 @ 000001bde6538140] frame:221  pts:221     pts_time:3.687017
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.74469
+[Parsed_metadata_3 @ 000001bde6538140] frame:222  pts:222     pts_time:3.7037
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.63106
+[Parsed_metadata_3 @ 000001bde6538140] frame:223  pts:223     pts_time:3.720383
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.78152
+[Parsed_metadata_3 @ 000001bde6538140] frame:224  pts:224     pts_time:3.737067
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.32825
+[Parsed_metadata_3 @ 000001bde6538140] frame:225  pts:225     pts_time:3.75375
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.74568
+[Parsed_metadata_3 @ 000001bde6538140] frame:226  pts:226     pts_time:3.770433
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.52231
+[Parsed_metadata_3 @ 000001bde6538140] frame:227  pts:227     pts_time:3.787117
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.81217
+[Parsed_metadata_3 @ 000001bde6538140] frame:228  pts:228     pts_time:3.8038
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.74473
+[Parsed_metadata_3 @ 000001bde6538140] frame:229  pts:229     pts_time:3.820483
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.78118
+[Parsed_metadata_3 @ 000001bde6538140] frame:230  pts:230     pts_time:3.837167
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.7608
+[Parsed_metadata_3 @ 000001bde6538140] frame:231  pts:231     pts_time:3.85385
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.05493
+[Parsed_metadata_3 @ 000001bde6538140] frame:232  pts:232     pts_time:3.870533
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.59601
+[Parsed_metadata_3 @ 000001bde6538140] frame:233  pts:233     pts_time:3.887217
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.25852
+[Parsed_metadata_3 @ 000001bde6538140] frame:234  pts:234     pts_time:3.9039
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.44965
+[Parsed_metadata_3 @ 000001bde6538140] frame:235  pts:235     pts_time:3.920583
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.83242
+[Parsed_metadata_3 @ 000001bde6538140] frame:236  pts:236     pts_time:3.937267
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.71749
+[Parsed_metadata_3 @ 000001bde6538140] frame:237  pts:237     pts_time:3.95395
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.05961
+[Parsed_metadata_3 @ 000001bde6538140] frame:238  pts:238     pts_time:3.970633
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.14815
+[Parsed_metadata_3 @ 000001bde6538140] frame:239  pts:239     pts_time:3.987317
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=3.63081
+[Parsed_metadata_3 @ 000001bde6538140] frame:240  pts:240     pts_time:4.004
+[Parsed_metadata_3 @ 000001bde6538140] lavfi.signalstats.YDIF=4.13235
+[Parsed_idet_0 @ 000001bde66cec40] Repeated Fields: Neither:   122 Top:     0 Bottom:     0
+[Parsed_idet_0 @ 000001bde66cec40] Single frame detection: TFF:     0 BFF:   122 Progressive:     0 Undetermined:     0
+[Parsed_idet_0 @ 000001bde66cec40] Multi frame detection: TFF:     0 BFF:   122 Progressive:     0 Undetermined:     0
+[out#0/null @ 000001bde66a9640] video:99KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame=  240 fps=0.0 q=-0.0 Lsize=N/A time=00:00:04.00 bitrate=N/A speed=5.06x elapsed=0:00:00.79    

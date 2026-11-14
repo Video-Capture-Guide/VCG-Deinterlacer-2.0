@@ -24,6 +24,7 @@ use vcg_core::analysis::classify::{
     bleeding, color_data, levels, noise, BleedingAnalysis, ColorData, Levels, NoiseAnalysis,
 };
 use vcg_core::analysis::halo::{self, EdgeTally, HaloAnalysis, LumaPlane};
+use vcg_core::analysis::cadence::{self, Cadence, CadenceWindow};
 use vcg_core::analysis::idet::{self, IdetCounts, Telecine};
 use vcg_core::analysis::probe::{self, Classification, ParFormat, VideoInfo};
 use vcg_core::analysis::signalstats::{interior_sample_times, mid_sample_offsets, SignalStatsRun};
@@ -121,6 +122,10 @@ pub struct Report {
     pub bleeding: Option<BleedingAnalysis>,
     pub halo: Option<HaloAnalysis>,
     pub telecine: Option<Telecine>,
+    /// The rhythm of picture changes across the bobbed fields, read from the
+    /// same windows as the telecine scan. Finds the home-movie transfers
+    /// that `idet` cannot: film run off a projector in front of a camera.
+    pub cadence: Option<Cadence>,
     /// Where the picture starts at each edge. `Inconclusive` is a real answer
     /// here, not a failure: it means leave the chosen preset alone.
     pub edges: Option<Detection>,
@@ -387,6 +392,7 @@ pub fn probe_file(
         let plan = idet::sample_plan(duration, info.fps);
         let total = plan.len() as u32;
         let mut windows = Vec::new();
+        let mut rhythms: Vec<CadenceWindow> = Vec::new();
         for (i, w) in plan.iter().enumerate() {
             tick("telecine", i as u32 + 1, total);
             let mut args: Vec<String> = vec!["-hide_banner".into()];
@@ -400,23 +406,43 @@ pub fn probe_file(
                 "-i".into(),
                 file.display().to_string(),
                 "-vf".into(),
-                "idet".into(),
+                // One decode serves two readings. idet classifies the woven
+                // frames and prints its summary; the chain after it bobs
+                // every field and prints each field's difference from the
+                // one before, which is what the cadence scan reads. yadif
+                // takes its parity from the flags idet has just stamped on
+                // each frame, so the fields come out in the measured order
+                // rather than a guessed one.
+                "idet,yadif=mode=1,signalstats,metadata=print:key=lavfi.signalstats.YDIF"
+                    .into(),
+                // Counted at the output, where the bob has doubled them:
+                // the window is still `w.frames` decoded frames for idet.
                 "-frames:v".into(),
-                w.frames.to_string(),
+                (w.frames * 2).to_string(),
                 "-an".into(),
                 "-f".into(),
                 "null".into(),
                 "-".into(),
             ]);
-            if let Some(stderr) = ctx.ffmpeg_stderr(&args, IDET_TIMEOUT)
-                && let Some(counts) = IdetCounts::parse(&stderr) {
+            if let Some(stderr) = ctx.ffmpeg_stderr(&args, IDET_TIMEOUT) {
+                if let Some(counts) = IdetCounts::parse(&stderr) {
                     windows.push(counts);
                 }
+                if let Some(rhythm) = CadenceWindow::measure(&cadence::field_diffs(&stderr)) {
+                    rhythms.push(rhythm);
+                }
+            }
         }
         if windows.is_empty() {
             ctx.warn("no window could be analyzed for telecine".to_string());
         } else {
             ctx.report.telecine = Some(idet::verdict(&windows, format));
+        }
+        if !rhythms.is_empty() {
+            // Fields per second is twice the frame rate the file declares,
+            // which is also what the bob above produced.
+            let field_rate = 2.0 * if info.fps > 1.0 { info.fps } else { 25.0 };
+            ctx.report.cadence = Some(cadence::verdict(&rhythms, field_rate));
         }
     }
 

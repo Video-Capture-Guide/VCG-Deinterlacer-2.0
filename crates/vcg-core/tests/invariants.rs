@@ -352,3 +352,59 @@ fn prores_always_pins_the_pixel_format() {
     let i = out.args.iter().position(|a| a == "-pix_fmt").expect("-pix_fmt");
     assert_eq!(out.args[i + 1], "yuv422p10le");
 }
+
+#[test]
+fn a_home_movie_comes_out_at_the_projectors_rate_on_either_standard() {
+    use vcg_core::config::FilmRate;
+    for (rate, expected) in [
+        (FilmRate::Fps16, "16"),
+        (FilmRate::Fps18, "18"),
+        (FilmRate::Fps24, "24"),
+    ] {
+        for pal in [false, true] {
+            let c = Config {
+                format: if pal { VideoFormat::Pal } else { VideoFormat::Ntsc },
+                home_movie: true,
+                home_movie_rate: rate,
+                double_rate: true,
+                ..Config::default()
+            };
+            assert_eq!(output_frame_rate(&c), expected, "pal={pal} {rate:?}");
+        }
+    }
+    // Inverse telecine still outranks it if a settings file carries both.
+    let c = Config { home_movie: true, ivtc_mode: true, ..Config::default() };
+    assert_eq!(output_frame_rate(&c), "24000/1001");
+}
+
+#[test]
+fn the_scan_type_setter_keeps_the_two_film_flags_exclusive() {
+    use vcg_core::config::ScanType;
+    let mut c = Config::default();
+    assert_eq!(c.scan_type(), ScanType::Video);
+    c.set_scan_type(ScanType::HomeMovie);
+    assert!(c.home_movie && !c.ivtc_mode);
+    assert_eq!(c.scan_type(), ScanType::HomeMovie);
+    c.set_scan_type(ScanType::Telecine);
+    assert!(c.ivtc_mode && !c.home_movie);
+    c.set_scan_type(ScanType::Video);
+    assert!(!c.ivtc_mode && !c.home_movie);
+}
+
+#[test]
+fn an_old_settings_file_without_the_home_movie_fields_still_loads() {
+    use vcg_core::config::FilmRate;
+    // Written before the fields existed: nothing about home movies in it.
+    let old = r#"{"ivtc_mode": true, "ivtc_user_override": true}"#;
+    let c: Config = serde_json::from_str(old).expect("loads");
+    assert!(c.ivtc_mode);
+    assert!(!c.home_movie);
+    assert_eq!(c.home_movie_rate, FilmRate::Fps18);
+    // And the fields round-trip.
+    let c = Config { home_movie: true, home_movie_rate: FilmRate::Fps16, ..Config::default() };
+    let json = serde_json::to_string(&c).expect("saves");
+    assert!(json.contains("\"home_movie_rate\":\"fps16\""), "{json}");
+    let back: Config = serde_json::from_str(&json).expect("loads");
+    assert!(back.home_movie);
+    assert_eq!(back.home_movie_rate, FilmRate::Fps16);
+}

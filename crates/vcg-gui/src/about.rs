@@ -223,6 +223,37 @@ fn body(ui: &mut egui::Ui, app: &mut App) {
     );
     ui.add_space(16.0);
 
+    section(ui, "Home movies (8 mm and Super 8)");
+    paragraph(
+        ui,
+        "A home movie that reached tape by pointing a camcorder at a projected \
+         picture carries no 3:2 pulldown at all. The projector ran at its own \
+         speed — 18 frames a second for Super 8, 16 for Regular 8, 24 for \
+         sound film — with no relation to the video field rate, so each film \
+         frame landed on three or four fields, and wherever the projector \
+         changed frames during a field's exposure that field is a blend of \
+         two film frames. Deinterlaced as video the result holds every frame \
+         for three or four and smears at each change; treated as 3:2 it \
+         pairs fields that never shared a film frame.",
+    );
+    ui.add_space(8.0);
+    paragraph(
+        ui,
+        "The app reads the rhythm of picture changes across the bobbed fields \
+         in the same windows the pulldown scan uses, and when it finds a \
+         steady projector-speed beat it bobs every field and hands them to \
+         sRestore, which keeps one clean frame per film frame at that speed \
+         and drops the repeats and the blends. The file comes out at the \
+         projector's rate, as the camera that shot the film saw it. The \
+         speed is 18 unless the scan measured 16, and both can be set by \
+         hand on the Check video page, along with 24 for a sound film. A \
+         Regular 8 reel the projector ran at 18 was recorded 12% fast on the \
+         tape; that is baked in, and the true pace is restored by slowing \
+         the finished file in an editor rather than by choosing 16 here, \
+         which would drop one real frame in nine.",
+    );
+    ui.add_space(16.0);
+
     section(ui, "Export formats");
     for (name, line) in [
         (

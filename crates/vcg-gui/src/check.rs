@@ -14,7 +14,8 @@
 
 use eframe::egui::{self, RichText};
 
-use vcg_core::config::{Mode, QtgmcImpl, VideoFormat};
+use vcg_core::config::{FilmRate, Mode, QtgmcImpl, ScanType, VideoFormat};
+use vcg_tools::apply::{detected_scan, DetectedScan};
 use vcg_tools::probe::Report;
 
 use crate::findings::{self, Check, Finding};
@@ -235,10 +236,12 @@ fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding, report: &Report) {
                         // the wrong operation in the largest type on the page.
                         RichText::new(if progressive {
                             "No interlacing to remove"
-                        } else if app.config.ivtc_mode {
-                            "Put the original film frames back"
                         } else {
-                            "Remove interlacing lines"
+                            match app.config.scan_type() {
+                                ScanType::Telecine => "Put the original film frames back",
+                                ScanType::HomeMovie => "Put the home-movie frames back",
+                                ScanType::Video => "Remove interlacing lines",
+                            }
                         })
                         .size(theme::FONT_SECTION)
                         .color(theme::text()),
@@ -308,15 +311,17 @@ fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding, report: &Report) {
 
             // Film or video comes first, because it decides whether the
             // frame-rate question below exists at all.
-            telecine_choice(ui, app, report);
+            let listed = telecine_choice(ui, app, report);
 
             // Frame rate is a deinterlacing control. Inverse telecine does not
             // deinterlace — it reassembles the original whole film frames — so
             // the choice has no meaning on a film source, and the rate is the
             // film's own. Leaving a "59.94 fps (Recommended)" chip selected
             // over a file that will export at 23.976 would be the page
-            // contradicting itself.
-            if !app.config.ivtc_mode {
+            // contradicting itself. A home movie always bobs and then comes
+            // out at the projector's rate, so the same applies. When the
+            // choices are listed, the Video row asks this itself.
+            if !listed && app.config.scan_type() == ScanType::Video {
                 ui.add_space(16.0);
                 frame_rate_choice(ui, app);
             }
@@ -343,11 +348,15 @@ fn hero_card(ui: &mut egui::Ui, app: &mut App, f: &Finding, report: &Report) {
 /// counterpart in the rewrite, which is said on the page rather than left to
 /// be discovered by comparing two exports.
 fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
-    ui.label(
-        RichText::new("Deinterlacing tool")
-            .size(theme::FONT_BODY)
-            .color(theme::text()),
-    );
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 10.0;
+        ui.label(
+            RichText::new("Deinterlacing tool")
+                .size(theme::FONT_SUBHEAD)
+                .color(theme::text()),
+        );
+        pill(ui, "Advanced");
+    });
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
@@ -401,6 +410,17 @@ fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
     // What we measured, stated as what it is: two files on one machine.
     // Anybody choosing between these deserves the numbers and the caveat in
     // the same breath, rather than a recommendation with nothing behind it.
+    // Folded, because it is two paragraphs of evidence for a choice most
+    // people will leave alone, and it was burying the choices above it.
+    let key = "qtgmc-compare";
+    let mut open = app.is_open(key);
+    if theme::disclosure(ui, "How the two compared in our tests", &mut open) {
+        app.queue_open(key, open);
+    }
+    if !open {
+        return;
+    }
+    ui.add_space(6.0);
     theme::paragraph(ui, RichText::new(
                 "In our tests on an uncompressed capture and a MiniDV capture, the two took about the same time. vs-jetpack produced files roughly 2-14% smaller at the same quality setting, which is the sign of a slightly softer picture rather than better compression — measured directly, it carries about 8% less vertical detail, and vertical is the direction that matters for a deinterlacer. That is why havsfunc is the default.",
             )
@@ -429,9 +449,14 @@ fn qtgmc_choice(ui: &mut egui::Ui, app: &mut App) {
 /// confirming, and folded behind "Override detection" when it did not: a
 /// negative result is the case where someone who knows better would otherwise
 /// have no way in at all.
-fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) {
-    let scanned = report.telecine.is_some();
-    let detected = report.telecine.as_ref().is_some_and(|t| t.detected());
+///
+/// Returns whether the list of choices was shown. When it was, the frame-rate
+/// question has already been asked inside the Video row.
+fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) -> bool {
+    let found: Option<DetectedScan> = detected_scan(report);
+    let scanned = found.is_some();
+    let found_scan = found.map(|d| d.scan);
+    let detected = found_scan.is_some_and(|s| s != ScanType::Video);
     let pal = app.config.format == VideoFormat::Pal;
     let key = "telecine-override";
     // On the face of the card when the scan found film, or when the user has
@@ -442,14 +467,23 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 10.0;
         ui.label(
-            RichText::new("Film or video")
-                .size(theme::FONT_BODY)
+            RichText::new("What kind of recording is this?")
+                .size(theme::FONT_SUBHEAD)
                 .color(theme::text()),
         );
-        if detected {
-            pill(ui, if pal { "2:2 pulldown found" } else { "3:2 pulldown found" });
-        } else if scanned {
-            pill(ui, "No pulldown found");
+        match found_scan {
+            Some(ScanType::Telecine) => {
+                pill(ui, if pal { "2:2 pulldown found" } else { "3:2 pulldown found" })
+            }
+            Some(ScanType::HomeMovie) => pill(
+                ui,
+                &format!(
+                    "Home-movie rhythm found ({} fps)",
+                    found.and_then(|d| d.rate).unwrap_or(FilmRate::Fps18).fps()
+                ),
+            ),
+            Some(ScanType::Video) => pill(ui, "No pulldown found"),
+            None => {}
         }
     });
 
@@ -460,9 +494,9 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) {
         // not, and claiming it read the file as video would be reporting a
         // measurement that never happened.
         theme::paragraph(ui, RichText::new(if scanned {
-                "This reads as ordinary interlaced video, so it will be deinterlaced. If you know this tape holds a film transfer, you can say so."
+                "This reads as ordinary interlaced video, so it will be deinterlaced. If you know this tape holds a film transfer or a home movie, you can say so."
             } else {
-                "The film check could not be run on this file, so it will be deinterlaced as ordinary video. If you know this tape holds a film transfer, you can say so."
+                "The film check could not be run on this file, so it will be deinterlaced as ordinary video. If you know this tape holds a film transfer or a home movie, you can say so."
             })
             .size(theme::FONT_SMALL)
             .color(theme::muted()),);
@@ -470,76 +504,241 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) {
         if theme::link(ui, "Override detection").clicked() {
             app.queue_open(key, true);
         }
-        return;
+        return false;
     }
 
     // The frame rates are the standard's, not a guess: 3:2 pulldown carries
     // 23.976fps film at 29.97, and a PAL 2:2 transfer carries 25fps film at
     // 25 — the rate does not change there, only how the fields are paired.
-    let (film, video) = if pal {
-        (
-            "Film (2:2) — rebuild 25 fps whole frames",
-            "Video — deinterlace (25 / 50 fps)",
-        )
-    } else {
-        (
-            "Film (3:2) — restore 23.976 fps",
-            "Video — deinterlace (29.97 / 59.94 fps)",
-        )
-    };
+    // A home movie's rate is the projector's, whichever standard the tape is.
     // Which side the scan is on, marked the same way every other recommended
-    // chip on this page is marked.
-    let film_label = if detected { format!("{film} (Recommended)") } else { film.to_string() };
-    let video_label = if detected { video.to_string() } else { format!("{video} (Recommended)") };
+    // choice on this page is marked.
+    let recommended = found_scan.unwrap_or(ScanType::Video);
+    let current = app.config.scan_type();
+    let rate = app.config.home_movie_rate;
 
-    ui.add_space(8.0);
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 8.0;
-        if theme::chip_button(ui, &film_label, app.config.ivtc_mode) {
-            app.set_ivtc_mode(true, detected);
-        }
-        if theme::chip_button(ui, &video_label, !app.config.ivtc_mode) {
-            app.set_ivtc_mode(false, detected);
-        }
-    });
+    if scanned {
+        ui.add_space(4.0);
+        theme::paragraph(
+            ui,
+            RichText::new("The scan picked one for you. Change it only if you know the tape better.")
+                .size(theme::FONT_SMALL)
+                .color(theme::muted()),
+        );
+    }
 
-    ui.add_space(8.0);
-    theme::paragraph(ui, RichText::new(if app.config.ivtc_mode {
-                if pal {
-                    "Film: the two fields of each frame came from the same instant, so they are paired back into the original whole frames instead of being deinterlaced. The frame rate stays 25."
-                } else {
-                    "Film: four film frames were spread over five video frames to fill 29.97fps. Those extra fields are removed and the original 23.976fps frames rebuilt, rather than deinterlaced."
+    // One row per kind of recording, each saying in a line what it is and
+    // what happens to it. These used to be three chips with the operation
+    // and the frame rate crammed into the label, followed by loose
+    // paragraphs that belonged to whichever chip happened to be lit; a
+    // newcomer could not tell which sentence explained which choice. Now
+    // everything that belongs to a choice lives inside its row, and only
+    // the chosen row opens.
+    ui.add_space(10.0);
+    for scan in [ScanType::Video, ScanType::Telecine, ScanType::HomeMovie] {
+        let (title, what) = match (scan, pal) {
+            (ScanType::Video, false) => (
+                "Video camera",
+                "Shot on a camcorder or recorded from TV. The interlacing lines are removed, at 29.97 or 59.94 fps.",
+            ),
+            (ScanType::Video, true) => (
+                "Video camera",
+                "Shot on a camcorder or recorded from TV. The interlacing lines are removed, at 25 or 50 fps.",
+            ),
+            (ScanType::Telecine, false) => (
+                "Film transfer (3:2)",
+                "A movie or show shot on film, then copied to tape. The original 23.976 fps film frames are restored.",
+            ),
+            (ScanType::Telecine, true) => (
+                "Film transfer (2:2)",
+                "A movie or show shot on film, then copied to tape. The original 25 fps whole frames are rebuilt.",
+            ),
+            (ScanType::HomeMovie, _) => (
+                "Home movie (8 mm / Super 8)",
+                "A reel projected on a screen and filmed with a camcorder. Rebuilt at the projector's speed.",
+            ),
+        };
+        let clicked = option_row(ui, title, what, scan == recommended, current == scan, |ui| {
+            match scan {
+                // The projector's speed, only when it matters. 18 is marked
+                // unless the scan measured 16: it is what Super 8 ran at and
+                // what a dual-8 projector left on its usual setting runs
+                // Regular 8 at too.
+                ScanType::HomeMovie => {
+                    ui.label(
+                        RichText::new("Projector speed")
+                            .size(theme::FONT_BODY)
+                            .color(theme::text()),
+                    );
+                    ui.add_space(6.0);
+                    let measured = found.and_then(|d| d.rate).unwrap_or(FilmRate::Fps18);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.spacing_mut().item_spacing.x = 8.0;
+                        for r in FilmRate::ALL {
+                            let text = if r == measured {
+                                format!("{} (Recommended)", r.label())
+                            } else {
+                                r.label().to_string()
+                            };
+                            if theme::chip_button(ui, &text, rate == r) {
+                                app.set_scan(ScanType::HomeMovie, r, found);
+                            }
+                        }
+                    });
+                    ui.add_space(8.0);
+                    theme::paragraph(ui, RichText::new(
+                                "A Regular 8 reel run at 18 plays 12% fast; slow the finished file in an editor rather than choosing 16, which would drop real frames.",
+                            )
+                            .size(theme::FONT_SMALL)
+                            .color(theme::muted()),);
+                    ui.add_space(10.0);
                 }
-            } else {
-                "Video: each frame is two halves recorded a moment apart, so they are rebuilt into whole frames with QTGMC. This is right for anything shot on a video camera."
-            })
-            .size(theme::FONT_SMALL)
-            .color(theme::muted()),);
+                // Frame rate is a deinterlacing control, so it sits inside
+                // the one choice that deinterlaces.
+                ScanType::Video => {
+                    frame_rate_choice(ui, app);
+                    ui.add_space(10.0);
+                }
+                ScanType::Telecine => {}
+            }
+
+            let key = "scan-how";
+            let mut open = app.is_open(key);
+            if theme::disclosure(ui, "How this works", &mut open) {
+                app.queue_open(key, open);
+            }
+            if open {
+                ui.add_space(6.0);
+                theme::paragraph(ui, RichText::new(match scan {
+                            ScanType::Telecine => if pal {
+                                "The two fields of each frame came from the same instant, so they are paired back into the original whole frames instead of being deinterlaced. The frame rate stays 25."
+                            } else {
+                                "Four film frames were spread over five video frames to fill 29.97fps. Those extra fields are removed and the original 23.976fps frames rebuilt, rather than deinterlaced."
+                            },
+                            ScanType::HomeMovie => "The film was projected and filmed off the screen, so each film frame sits on three or four fields with a blur wherever the projector changed frames. Every field is rebuilt, then one clean frame is kept per film frame at the projector's speed.",
+                            ScanType::Video => "Each frame is two halves recorded a moment apart, so they are rebuilt into whole frames with QTGMC. This is right for anything shot on a video camera.",
+                        })
+                        .size(theme::FONT_SMALL)
+                        .color(theme::muted()),);
+            }
+        });
+        if clicked {
+            app.set_scan(scan, rate, found);
+        }
+        ui.add_space(8.0);
+    }
 
     // Say plainly when the choice departs from the scan. A card that shows a
     // measurement and then does the opposite of what it implies has to
     // account for the gap, and the way back has to be visible — otherwise an
     // override made by accident is permanent for that file.
     if app.config.ivtc_user_override {
-        ui.add_space(8.0);
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
             ui.label(
-                RichText::new(if detected {
-                    "Set by hand — the scan found a film pulldown."
-                } else if scanned {
-                    "Set by hand — the scan found no film pulldown."
-                } else {
-                    "Set by hand — the film check could not be run."
+                RichText::new(match found_scan {
+                    Some(ScanType::Telecine) => "Set by hand — the scan found a film pulldown.",
+                    Some(ScanType::HomeMovie) => "Set by hand — the scan found a home-movie rhythm.",
+                    Some(ScanType::Video) => "Set by hand — the scan found no film pulldown.",
+                    None => "Set by hand — the film check could not be run.",
                 })
                 .size(theme::FONT_SMALL)
                 .color(theme::faint()),
             );
-            if theme::link(ui, "Use what the scan found").clicked() {
-                app.set_ivtc_mode(detected, detected);
+            if let Some(d) = found
+                && theme::link(ui, "Use what the scan found").clicked()
+            {
+                app.set_scan(d.scan, d.rate.unwrap_or(rate), found);
             }
         });
     }
+    true
+}
+
+/// One choice in a short list where each choice needs a sentence.
+///
+/// A radio dot, a title, a line saying what it is, and — only while it is the
+/// chosen one — whatever follow-up questions belong to it. The header is the
+/// click target rather than the whole frame, so the controls in the body keep
+/// their own clicks.
+fn option_row(
+    ui: &mut egui::Ui,
+    title: &str,
+    what: &str,
+    recommended: bool,
+    selected: bool,
+    body: impl FnOnce(&mut egui::Ui),
+) -> bool {
+    let mut clicked = false;
+    egui::Frame::NONE
+        .fill(theme::bg())
+        .stroke(egui::Stroke::new(
+            if selected { 1.5 } else { 1.0 },
+            if selected { theme::accent_hover() } else { theme::line() },
+        ))
+        .corner_radius(theme::RADIUS_SMALL)
+        .inner_margin(egui::Margin::same(12))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            let header = ui
+                .horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 12.0;
+                    let (dot, _) =
+                        ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
+                    if ui.is_rect_visible(dot) {
+                        let p = ui.painter();
+                        p.circle_stroke(
+                            dot.center(),
+                            8.0,
+                            egui::Stroke::new(
+                                1.5,
+                                if selected { theme::accent_hover() } else { theme::faint() },
+                            ),
+                        );
+                        if selected {
+                            p.circle_filled(dot.center(), 4.5, theme::accent_hover());
+                        }
+                    }
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 10.0;
+                            ui.label(
+                                RichText::new(title)
+                                    .size(theme::FONT_BODY)
+                                    .color(theme::text()),
+                            );
+                            if recommended {
+                                pill(ui, "Recommended");
+                            }
+                        });
+                        ui.add_space(2.0);
+                        theme::paragraph(
+                            ui,
+                            RichText::new(what)
+                                .size(theme::FONT_SMALL)
+                                .color(theme::muted()),
+                        );
+                    });
+                })
+                .response
+                .interact(egui::Sense::click());
+            if header.hovered() && !selected {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            theme::focus_ring(ui, &header, theme::RADIUS_SMALL);
+            clicked = header.clicked() && !selected;
+
+            if selected {
+                ui.add_space(12.0);
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    // Under the title, not under the dot.
+                    ui.add_space(30.0);
+                    ui.vertical(body);
+                });
+            }
+        });
+    clicked
 }
 
 /// Double-rate or single-rate, in frames per second rather than in jargon.

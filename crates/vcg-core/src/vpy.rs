@@ -478,6 +478,13 @@ fn plugin_loading(s: &mut Script, config: &Config, deps: &DepsPaths) {
             );
             s.push("        \"havsfunc deinterlacer on the Check video page.\"");
             s.push("    )");
+
+            // sRestore is havsfunc's alone — see `home_movie`.
+            if config.home_movie {
+                s.gap();
+                s.push("# sRestore, for the home-movie path, lives in havsfunc");
+                s.push("import havsfunc as haf");
+            }
         }
     }
     s.gap();
@@ -837,13 +844,20 @@ fn deinterlace(s: &mut Script, config: &Config) {
     // (59.94/50 fps) for the smoothest motion; single-rate (FPSDivisor=2) one
     // frame per interlaced frame (29.97/25 fps) for compatibility and smaller
     // files. Double-rate is the default, matching historical behavior.
+    //
+    // A home movie is always bobbed: sRestore needs every field on its own
+    // to pick the clean one for each film frame, so the frame-rate choice
+    // has no say here — the output rate is the projector's.
     let tff = if config.field_order == FieldOrder::Tff {
         "True"
     } else {
         "False"
     };
-    let fps_divisor = if config.double_rate { 1 } else { 2 };
-    let mode = if config.double_rate {
+    let double_rate = config.double_rate || config.home_movie;
+    let fps_divisor = if double_rate { 1 } else { 2 };
+    let mode = if config.home_movie {
+        "double-rate (bob), for sRestore"
+    } else if double_rate {
         "double-rate (bob)"
     } else {
         "single-rate"
@@ -855,15 +869,59 @@ fn deinterlace(s: &mut Script, config: &Config) {
             "# Frame-rate mode: {mode} — fps_divisor={fps_divisor}"
         ));
         modern_qtgmc(s, "clip", "clip", tff, fps_divisor);
-        s.gap();
-        return;
+    } else {
+        s.push("# QTGMC Deinterlacing");
+        s.push(format!(
+            "# Frame-rate mode: {mode} — FPSDivisor={fps_divisor}"
+        ));
+        legacy_qtgmc(s, "clip", "clip", tff, fps_divisor);
     }
+    s.gap();
 
-    s.push("# QTGMC Deinterlacing");
+    if config.home_movie {
+        home_movie(s, config);
+    }
+}
+
+/// Put a projected home movie back at the projector's frame rate.
+///
+/// A film-to-tape transfer made with a camera pointed at a projector carries
+/// no pulldown. The projector runs at its own speed — 18 fps for Super 8 —
+/// and the camera samples it at the field rate, so each film frame lands on
+/// three or four fields, and wherever a frame changed during a field's
+/// exposure that field is a blend of two film frames. Deinterlaced as video
+/// it plays at 59.94 fps with every frame held for three or four and a smear
+/// at each change; field-matched as 3:2 it pairs fields that never shared a
+/// film frame and then drops one frame in five of an 18 fps picture.
+///
+/// sRestore reads the bobbed clip, finds the blends, and keeps one clean
+/// field per film frame at the rate it is told — so the output is one frame
+/// per film frame, which is what the camera that shot the film produced.
+/// Measured on a Super 8 transfer: 240 bobbed fields became 72 frames at 18
+/// fps with no duplicate and no blend left in them.
+///
+/// It is havsfunc's, not the JET rewrite's — vs-jetpack has no equivalent,
+/// only fixed-cycle field matchers that a real-time transfer's drifting
+/// blends defeat — so havsfunc is imported for this call whichever
+/// deinterlacer is chosen.
+fn home_movie(s: &mut Script, config: &Config) {
+    let fps = config.home_movie_rate.fps();
     s.push(format!(
-        "# Frame-rate mode: {mode} — FPSDivisor={fps_divisor}"
+        "# Home-movie film transfer — resolve the projector's {fps} fps from the bobbed fields"
     ));
-    legacy_qtgmc(s, "clip", "clip", tff, fps_divisor);
+    s.push("# Each film frame was filmed off a projector onto three or four fields, with a");
+    s.push("# blended field wherever the frame changed mid-exposure. sRestore keeps one");
+    s.push("# clean field per film frame and drops the repeats and the blends.");
+    s.push("#");
+    s.push("# VapourSynth prints one line about an obsolete cache call inside sRestore");
+    s.push("# (\"Explicitly instantiated a Cache with make_linear set\"); it is harmless and");
+    s.push("# the output is unaffected.");
+    s.push(format!("clip = haf.srestore(clip, frate={fps})"));
+    // sRestore derives its output rate from the 60000/1001 field rate and
+    // leaves an unreduced fraction a hair under the whole number
+    // (162180000/9010001 for 18). The muxer is told the whole number, so
+    // the clip says the same.
+    s.push(format!("clip = core.std.AssumeFPS(clip, fpsnum={fps}, fpsden=1)"));
     s.gap();
 }
 
@@ -1692,8 +1750,15 @@ pub fn generate_stage_preview_vpy(
     // It also pays for itself: with no stage applied the script no longer
     // depends on which stage was asked for, so the untouched half is one
     // image shared by every page instead of one per page.
+    //
+    // Without sRestore on a home movie: the preview asks vspipe for one
+    // frame by source frame number, and sRestore renumbers every frame to
+    // the projector's rate, so the moment shown would not be the moment
+    // asked for. The deinterlaced field is the same picture the restored
+    // frame is built from, which is all a filter preview needs to show.
     snap_height(&mut s);
-    deinterlace(&mut s, config);
+    let bobbed = Config { home_movie: false, ..config.clone() };
+    deinterlace(&mut s, &bobbed);
 
     if apply {
         match stage {

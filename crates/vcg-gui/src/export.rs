@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, RichText};
 
-use vcg_core::config::{Config, Mode, OutputFormat};
+use vcg_core::config::{Config, Mode, OutputFormat, ScanType};
 
 use crate::check::COLUMN;
 use crate::pages::PageAction;
@@ -334,10 +334,13 @@ fn plan_lines(app: &App) -> Vec<String> {
     // for hours, and an overridden scan type is the line on it most worth a
     // second look — it changes the frame rate of the finished file.
     let by_hand = if c.ivtc_user_override { " (set by hand)" } else { "" };
-    lines.push(if c.ivtc_mode {
-        format!("Put the original film frames back together{by_hand}")
-    } else {
-        format!("Remove the interlacing with QTGMC{by_hand}")
+    lines.push(match c.scan_type() {
+        ScanType::Telecine => format!("Put the original film frames back together{by_hand}"),
+        ScanType::HomeMovie => format!(
+            "Rebuild the home-movie frames at the projector's {} fps{by_hand}",
+            c.home_movie_rate.fps()
+        ),
+        ScanType::Video => format!("Remove the interlacing with QTGMC{by_hand}"),
     });
 
     let st = crate::crop::effective_strips(c);

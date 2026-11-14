@@ -32,7 +32,7 @@ use eframe::egui;
 
 use findings::Check;
 use nav::Step;
-use vcg_core::config::{Config, Mode};
+use vcg_core::config::{Config, FilmRate, Mode, ScanType};
 use vcg_deps::manifest::CURRENT as DEPS_MANIFEST;
 use vcg_deps::state::state as deps_state;
 use vcg_tools::apply::{apply_report, options_for};
@@ -678,16 +678,27 @@ impl App {
             .push((key.to_string(), open));
     }
 
-    /// Record a hand-made film-versus-video choice from the Check page.
+    /// Record a hand-made scan-type choice from the Check page.
     ///
     /// `detected` is what the scan concluded. Only a choice that departs from
     /// it counts as an override: clicking the chip the scan already chose puts
     /// the file back under automatic control, so a re-analysis is free to
     /// correct itself rather than being pinned to a value the user never
-    /// really disagreed with.
-    pub fn set_ivtc_mode(&mut self, on: bool, detected: bool) {
-        self.config.ivtc_mode = on;
-        self.config.ivtc_user_override = on != detected;
+    /// really disagreed with. A home movie at a speed the scan did not
+    /// measure is a departure too — the speed is the whole repair.
+    pub fn set_scan(
+        &mut self,
+        scan: ScanType,
+        rate: FilmRate,
+        detected: Option<vcg_tools::apply::DetectedScan>,
+    ) {
+        self.config.set_scan_type(scan);
+        self.config.home_movie_rate = rate;
+        self.config.ivtc_user_override = match detected {
+            Some(d) => scan != d.scan || (scan == ScanType::HomeMovie && d.rate != Some(rate)),
+            // Nothing was measured, so any answer is the user's own.
+            None => true,
+        };
     }
 
     pub fn queue_goto(&self, step: Step) {

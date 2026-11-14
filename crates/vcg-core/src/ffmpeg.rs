@@ -4,7 +4,7 @@
 //! `_estimate_output_width`.
 
 use crate::colorspace::output_cs_tag;
-use crate::config::{Config, CropPreset, FieldOrder, OutputFormat, VideoFormat};
+use crate::config::{Config, CropPreset, FieldOrder, FilmRate, OutputFormat, VideoFormat};
 
 /// A chosen encoder: the FFmpeg args and the container extension that must
 /// accompany them. Returning these together makes it impossible to pair
@@ -54,6 +54,7 @@ pub fn output_args(config: &Config) -> OutputArgs {
 ///   * progressive / single-rate QTGMC → source rate (29.97 or 25)
 ///   * double-rate "bob" QTGMC         → doubled rate (59.94 or 50)
 ///   * inverse telecine (film)         → native film rate (23.976 or 25)
+///   * home movie (sRestore)           → the projector's rate (16, 18 or 24)
 ///
 /// Used to stamp the muxed output so audio and video stay in sync and playback
 /// runs at the correct speed.
@@ -63,6 +64,15 @@ pub fn output_frame_rate(config: &Config) -> &'static str {
     // Inverse telecine restores the native progressive film rate.
     if config.ivtc_mode {
         return if pal { "25" } else { "24000/1001" };
+    }
+    // A home movie comes out at the projector's own speed, whichever
+    // standard the tape was: sRestore keeps one frame per film frame.
+    if config.home_movie {
+        return match config.home_movie_rate {
+            FilmRate::Fps16 => "16",
+            FilmRate::Fps18 => "18",
+            FilmRate::Fps24 => "24",
+        };
     }
     // No frame-rate change — carry the source rate through.
     if config.field_order == FieldOrder::Progressive {

@@ -63,8 +63,10 @@ file, and proportionally more on a long tape.
 Everything below is measured from your actual file, with the figures shown
 beside each verdict:
 
-- **Scan type** — interlaced video, or film that was telecined and should be
-  inverse-telecined instead. Telecine is one possible answer, not the question.
+- **Scan type** — interlaced video, film that was telecined and should be
+  inverse-telecined instead, or a home movie filmed off a projector that
+  should be rebuilt at the projector's speed. Telecine is one possible answer,
+  not the question.
 - **Field order** — the single most consequential fact about an interlaced
   file. Fed the wrong one, QTGMC interpolates each field against the neighbour
   on the wrong side of it in time, and the result looks worse than the source.
@@ -173,6 +175,36 @@ attached, not a certainty: a film transfer where every scene is busy can read
 as video, and a mostly-static interlaced tape can read as film. The Check video
 page shows which it decided and lets you change it — including when it found
 nothing, behind an "Override detection" link.
+
+### Home movies (8 mm and Super 8)
+
+A home movie that reached tape by pointing a camcorder at a projected picture
+carries no pulldown at all. The projector ran at its own speed — 18 frames a
+second for Super 8, 16 for Regular 8, 24 for sound film — with no relation to
+the field rate, so each film frame landed on three or four fields, and
+wherever the projector changed frames during a field's exposure that field is
+a blend of two film frames. Deinterlaced as video the result holds every frame
+for three or four and smears at each change; treated as 3:2 it pairs fields
+that never shared a film frame and then drops one frame in five of an 18 fps
+picture. On a reel with enough still shots the repeated fields can even cross
+the 3:2 bar and be mis-read as a telecine.
+
+What such a transfer does have is a rhythm. In the same windows the pulldown
+scan reads, every field is bobbed and its difference from the field before is
+measured; the picture changes come at a steady period — 3.33 fields for 18 fps
+on NTSC — and a periodogram over the change train finds that period however
+many quiet changes a slow scene hides. A coherent beat at a projector speed in
+a majority of windows outranks the pulldown reading. The repair is then
+`QTGMC` double-rate followed by `havsfunc.srestore(frate=18)`, which keeps one
+clean field per film frame and drops the repeats and the blends; the file
+comes out at the projector's rate. Measured on a Super 8 tape: 240 fields in,
+72 distinct frames out, no duplicate and no blend among them.
+
+The speed is 18 unless the scan measured 16, and 16, 18 and 24 can all be set
+by hand on the Check video page. A Regular 8 reel the projector ran at 18 was
+recorded 12% fast on the tape; that is baked in, and the true pace is restored
+by slowing the finished file in an editor rather than by choosing 16 here,
+which would make sRestore drop one real frame in nine.
 
 ## Optional corrections and enhancements
 

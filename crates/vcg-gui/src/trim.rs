@@ -35,7 +35,7 @@ pub fn trim_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     theme::page_header(
         ui,
         "Trim",
-        "This trims video from the start and/or the end. Drag the handles at either end of the bar, or type a start frame and an end frame into the boxes.",
+        "This trims video from the start and/or the end. Drag the handles at either end of the bar, or type a start frame and an end frame into the boxes. To land on an exact frame, click the bar and step with the left and right arrow keys.",
     );
     ui.add_space(18.0);
 
@@ -304,6 +304,71 @@ fn scrubber(ui: &mut egui::Ui, app: &mut App, width: f32, total_frames: i64, fps
 
     if timeline(ui, app, width, total_frames) {
         app.request_scrub_frame();
+    }
+
+    // ── Stepping ────────────────────────────────────────────────────────────
+    //
+    // The bar gets you near; it cannot get you there. On a 22-minute tape one
+    // pixel of it is about fifty frames, so the frame you actually want — the
+    // last one before the camera starts — is between two positions the mouse
+    // can reach. The arrow keys and the two buttons below move the playhead
+    // by exactly one frame, and Shift makes it a second.
+    //
+    // Ignored while anything holds keyboard focus, because the frame boxes
+    // use the same keys to change their own number.
+    let second = (fps.round() as i64).max(1);
+    let mut step: i64 = 0;
+    if ui.memory(|m| m.focused().is_none()) {
+        ui.input(|i| {
+            let by = if i.modifiers.shift { second } else { 1 };
+            step += by * i.num_presses(egui::Key::ArrowRight) as i64;
+            step -= by * i.num_presses(egui::Key::ArrowLeft) as i64;
+        });
+    }
+
+    ui.add_space(10.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        let here = app.trim_at_frame(total_frames);
+        if theme::secondary(ui, "Previous frame").clicked() {
+            step -= 1;
+        }
+        if theme::secondary(ui, "Next frame").clicked() {
+            step += 1;
+        }
+        ui.add_space(6.0);
+        ui.label(
+            RichText::new(format!("Frame {here}"))
+                .size(theme::FONT_BODY)
+                .color(theme::text()),
+        );
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.label(
+                RichText::new("Left and right arrow keys move one frame · hold Shift for one second")
+                    .size(theme::FONT_TINY)
+                    .color(theme::faint()),
+            );
+        });
+    });
+
+    // The fetch is asked for only when no other is in flight. A held arrow
+    // key repeats faster than a frame can be decoded, and asking on every
+    // repeat would cancel each fetch with the next and show nothing until
+    // the key came up — so the playhead moves at once, and the picture
+    // catches up to wherever it has got to each time one arrives.
+    let pending = egui::Id::new("trim-step-pending");
+    if step != 0 {
+        let last = (total_frames - 1).max(1);
+        let to = (app.trim_at_frame(total_frames) + step).clamp(0, last);
+        app.trim_scrub = to as f32 / last as f32;
+        ui.data_mut(|d| d.insert_temp(pending, true));
+    }
+    if ui.data(|d| d.get_temp::<bool>(pending).unwrap_or(false)) {
+        if app.trim_job.is_none() {
+            app.request_scrub_frame();
+            ui.data_mut(|d| d.insert_temp(pending, false));
+        }
+        ui.ctx().request_repaint();
     }
 
     ui.add_space(10.0);

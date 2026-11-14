@@ -196,6 +196,74 @@ impl QtgmcImpl {
     }
 }
 
+/// The speed a home-movie projector ran at when the film was shot onto tape.
+///
+/// A film-to-tape transfer made by pointing a camcorder at a projected
+/// picture carries no 3:2 pulldown at all: the projector runs at its own
+/// rate, the camera samples it at the field rate, and each film frame lands
+/// on three or four fields with a blended field wherever a frame changed
+/// mid-exposure. The only way back to whole film frames is to bob every
+/// field and then pick the one clean field per film frame, which needs the
+/// projector's rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FilmRate {
+    /// Regular 8 / Double 8, silent.
+    Fps16,
+    /// Super 8, silent — and what a dual-8 projector left on its Super 8
+    /// setting runs Regular 8 at too. By far the most common.
+    Fps18,
+    /// Sound film, either gauge.
+    Fps24,
+}
+
+impl FilmRate {
+    pub const ALL: [FilmRate; 3] = [FilmRate::Fps16, FilmRate::Fps18, FilmRate::Fps24];
+
+    pub fn fps(self) -> u32 {
+        match self {
+            Self::Fps16 => 16,
+            Self::Fps18 => 18,
+            Self::Fps24 => 24,
+        }
+    }
+
+    /// The nearest standard projector speed to a measured one, if it is
+    /// within a projector's tolerance of any. A sync motor drifts a few
+    /// percent; a measurement further off than that is some other cadence.
+    pub fn nearest(fps: f64) -> Option<FilmRate> {
+        Self::ALL
+            .into_iter()
+            .map(|r| (r, (fps - r.fps() as f64).abs() / r.fps() as f64))
+            .filter(|(_, err)| *err < 0.08)
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(r, _)| r)
+    }
+
+    /// What the Check page calls it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Fps16 => "16 fps — Regular 8",
+            Self::Fps18 => "18 fps — Super 8",
+            Self::Fps24 => "24 fps — sound film",
+        }
+    }
+}
+
+/// What the deinterlacer is told the fields are.
+///
+/// Three answers, not two: ordinary video, a telecined film transfer with
+/// a 3:2 or 2:2 pulldown to undo, and a home movie shot off a projector,
+/// which is film but carries no pulldown and needs a different repair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScanType {
+    Video,
+    /// Inverse telecine — field-match and decimate.
+    Telecine,
+    /// Bob, then resolve the projector's own frame rate with sRestore.
+    HomeMovie,
+}
+
 /// Dither kernel used on the final bit-depth reduction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -366,7 +434,16 @@ pub struct Config {
     pub qtgmc_impl: QtgmcImpl,
     /// Inverse telecine — restore native film rate from a 3:2 pulldown source.
     pub ivtc_mode: bool,
-    /// Set when the user answered film-versus-video by hand.
+    /// Home-movie film transfer — bob every field, then let sRestore pick
+    /// the one clean field per film frame at `home_movie_rate`.
+    ///
+    /// Never set together with `ivtc_mode`: the two are different repairs
+    /// for different kinds of film transfer, and `set_scan_type` is the one
+    /// place that writes either.
+    pub home_movie: bool,
+    /// The projector's speed, for the home-movie path.
+    pub home_movie_rate: FilmRate,
+    /// Set when the user answered the scan-type question by hand.
     ///
     /// Telecine detection is a measurement with a confidence attached, and on
     /// a borderline transfer the person who knows the tape is better informed
@@ -374,6 +451,10 @@ pub struct Config {
     /// keep outranking it, because the analysis is re-applied on every mode
     /// change. Without this flag a manual choice silently reverted to
     /// whatever idet read the moment the user switched modes.
+    ///
+    /// Covers all three answers (video, telecine, home movie), not only the
+    /// inverse-telecine one the name dates from. The name is kept because it
+    /// is what every saved settings file calls it.
     pub ivtc_user_override: bool,
 
     // ── Trim ────────────────────────────────────────────────────────────
@@ -497,6 +578,8 @@ impl Default for Config {
             double_rate: true,
             qtgmc_impl: QtgmcImpl::Legacy,
             ivtc_mode: false,
+            home_movie: false,
+            home_movie_rate: FilmRate::Fps18,
             ivtc_user_override: false,
 
             trim_ranges: Vec::new(),
@@ -544,6 +627,27 @@ impl Default for Config {
 }
 
 impl Config {
+    /// What the fields will be treated as.
+    ///
+    /// Inverse telecine wins if a settings file somehow carries both flags:
+    /// it is the older of the two and the one a file written before the
+    /// home-movie path existed can hold.
+    pub fn scan_type(&self) -> ScanType {
+        if self.ivtc_mode {
+            ScanType::Telecine
+        } else if self.home_movie {
+            ScanType::HomeMovie
+        } else {
+            ScanType::Video
+        }
+    }
+
+    /// Set the scan type, keeping the two film flags mutually exclusive.
+    pub fn set_scan_type(&mut self, scan: ScanType) {
+        self.ivtc_mode = scan == ScanType::Telecine;
+        self.home_movie = scan == ScanType::HomeMovie;
+    }
+
     /// Effective crop preset. DV sources are already digital with no overscan,
     /// so they default to no crop; everything else to the BT.601 active area.
     pub fn crop_preset(&self) -> CropPreset {

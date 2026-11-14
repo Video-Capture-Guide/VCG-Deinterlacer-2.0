@@ -21,9 +21,9 @@ use vcg_core::analysis::probe::{
 use vcg_core::analysis::Recommendation;
 use vcg_core::config::{
     CaptureMethod, ColorCorrection, Config, CropPreset, DehaloMode, FieldOrder, LevelsAdjustment,
-    Mode, NoiseLevel, SourceClass, VideoFormat,
+    FilmRate, Mode, NoiseLevel, ScanType, SourceClass, VideoFormat,
 };
-use vcg_tools::apply::{apply_report, options_for};
+use vcg_tools::apply::{apply_report, detected_scan, options_for};
 use vcg_tools::probe::Report;
 
 /// A report from a thoroughly damaged tape: every probe reporting its worst.
@@ -109,6 +109,7 @@ fn awful_tape() -> Report {
         tff_frames: 0,
         bff_frames: 0,
         }),
+        cadence: None,
         // Lopsided blanking with a head-switching band: the shape no preset
         // can express.
         edges: Some(Detection::Found(EdgeCrop {
@@ -897,4 +898,95 @@ fn a_declared_field_order_wins_over_both() {
     let mut config = Config::default();
     apply_report(&mut config, &report, Mode::EnhanceAutomatically);
     assert_eq!(config.field_order, FieldOrder::Bff, "the container said BFF");
+}
+
+// ── Home movies are structural too ──────────────────────────────────────────
+
+/// A report whose cadence scan found a Super 8 projector's rhythm.
+fn home_movie_report() -> Report {
+    use vcg_core::analysis::cadence::Cadence;
+    let mut report = video_report();
+    report.cadence = Some(Cadence {
+        windows: 3,
+        film_windows: 3,
+        other_windows: 0,
+        fps: 18.5,
+        rate: Some(FilmRate::Fps18),
+    });
+    report
+}
+
+#[test]
+fn a_home_movie_is_set_in_every_mode_with_its_measured_speed() {
+    let report = home_movie_report();
+    for mode in Mode::ALL {
+        let mut config = Config { home_movie_rate: FilmRate::Fps24, ..Config::default() };
+        apply_report(&mut config, &report, mode);
+        assert_eq!(config.scan_type(), ScanType::HomeMovie, "{mode:?}");
+        assert_eq!(config.home_movie_rate, FilmRate::Fps18, "{mode:?}");
+        assert!(!config.ivtc_mode, "{mode:?}");
+    }
+}
+
+#[test]
+fn the_projector_rhythm_outranks_a_32_reading() {
+    // A still-heavy home movie repeats enough fields to cross idet's 3:2
+    // bar. The rhythm scan measured the projector; it wins.
+    let mut report = film_report();
+    report.cadence = home_movie_report().cadence;
+    let mut config = Config::default();
+    apply_report(&mut config, &report, Mode::EnhanceAutomatically);
+    assert_eq!(config.scan_type(), ScanType::HomeMovie);
+    assert_eq!(detected_scan(&report).map(|d| d.scan), Some(ScanType::HomeMovie));
+}
+
+#[test]
+fn a_rhythm_at_a_telecine_rate_leaves_the_pulldown_reading_in_charge() {
+    use vcg_core::analysis::cadence::Cadence;
+    let mut report = film_report();
+    report.cadence = Some(Cadence {
+        windows: 5,
+        film_windows: 0,
+        other_windows: 4,
+        fps: 0.0,
+        rate: None,
+    });
+    let mut config = Config::default();
+    apply_report(&mut config, &report, Mode::EnhanceAutomatically);
+    assert_eq!(config.scan_type(), ScanType::Telecine);
+}
+
+#[test]
+fn a_hand_made_home_movie_choice_survives_re_analysis_in_both_directions() {
+    // Chosen by hand on a tape the scan read as video — and the speed with it.
+    let mut config = Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps16,
+        ivtc_user_override: true,
+        ..Config::default()
+    };
+    for mode in Mode::ALL {
+        apply_report(&mut config, &video_report(), mode);
+        assert_eq!(config.scan_type(), ScanType::HomeMovie, "{mode:?}");
+        assert_eq!(config.home_movie_rate, FilmRate::Fps16, "{mode:?}");
+    }
+
+    // Declined by hand on a tape the scan read as a home movie.
+    let mut config = Config { ivtc_user_override: true, ..Config::default() };
+    for mode in Mode::ALL {
+        apply_report(&mut config, &home_movie_report(), mode);
+        assert_eq!(config.scan_type(), ScanType::Video, "{mode:?}");
+    }
+}
+
+#[test]
+fn clearing_enhancements_leaves_the_scan_type_alone() {
+    let mut config = Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps16,
+        ..Config::default()
+    };
+    config.clear_enhancements();
+    assert_eq!(config.scan_type(), ScanType::HomeMovie);
+    assert_eq!(config.home_movie_rate, FilmRate::Fps16);
 }

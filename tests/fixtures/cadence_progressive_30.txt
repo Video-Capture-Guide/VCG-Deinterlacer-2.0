@@ -1,0 +1,505 @@
+[in#0/mpegvideo @ 0000020d5bff77c0] Estimating duration from bitrate, this may be inaccurate
+Input #0, mpegvideo, from 'D:/Apps/Video Enhancement/VCG Deinterlacer/Sample Videos/Telecined_Young.m2v':
+  Duration: 00:04:56.86, bitrate: 9000 kb/s
+  Stream #0:0: Video: mpeg2video (mpeg1video) (Main), yuv420p(tv, top first), 720x480 [SAR 8:9 DAR 4:3], 9000 kb/s, 25 fps, 29.97 tbr, 1200k tbn
+    Side data:
+      CPB properties: bitrate max/min/avg: 9000000/0/0 buffer size: 1835008 vbv_delay: N/A
+[Parsed_idet_0 @ 0000020d5c038580] Repeated Fields: Neither:     0 Top:     0 Bottom:     0
+[Parsed_idet_0 @ 0000020d5c038580] Single frame detection: TFF:     0 BFF:     0 Progressive:     0 Undetermined:     0
+[Parsed_idet_0 @ 0000020d5c038580] Multi frame detection: TFF:     0 BFF:     0 Progressive:     0 Undetermined:     0
+Stream mapping:
+  Stream #0:0 -> #0:0 (mpeg2video (native) -> wrapped_avframe (native))
+Press [q] to stop, [?] for help
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:0    pts:0       pts_time:0
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf62.12.100
+  Stream #0:0: Video: wrapped_avframe, yuv420p(tv, progressive), 720x480 [SAR 8:9 DAR 4:3], q=2-31, 200 kb/s, 59.94 fps, 59.94 tbn
+    Metadata:
+      encoder         : Lavc62.28.100 wrapped_avframe
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:1    pts:40040   pts_time:0.0166833
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.820061
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:2    pts:80080   pts_time:0.0333667
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.43479
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:3    pts:120120  pts_time:0.05005
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.01332
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:4    pts:160160  pts_time:0.0667333
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.48056
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:5    pts:200200  pts_time:0.0834167
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.17845
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:6    pts:240240  pts_time:0.1001
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.06218
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:7    pts:280280  pts_time:0.116783
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.06526
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:8    pts:320320  pts_time:0.133467
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.99163
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:9    pts:360360  pts_time:0.15015
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.898918
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:10   pts:400400  pts_time:0.166833
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.16053
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:11   pts:440440  pts_time:0.183517
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.874019
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:12   pts:480480  pts_time:0.2002
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.34089
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:13   pts:520520  pts_time:0.216883
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.847697
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:14   pts:560560  pts_time:0.233567
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.22003
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:15   pts:600600  pts_time:0.25025
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.829957
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:16   pts:640640  pts_time:0.266933
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.82997
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:17   pts:680680  pts_time:0.283617
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.832234
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:18   pts:720720  pts_time:0.3003
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.71514
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:19   pts:760760  pts_time:0.316983
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.811751
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:20   pts:800800  pts_time:0.333667
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.66117
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:21   pts:840840  pts_time:0.35035
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.819372
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:22   pts:880880  pts_time:0.367033
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.0646
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:23   pts:920920  pts_time:0.383717
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.835119
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:24   pts:960960  pts_time:0.4004
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.68029
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:25   pts:1001000 pts_time:0.417083
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.839314
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:26   pts:1041040 pts_time:0.433767
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.44165
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:27   pts:1081080 pts_time:0.45045
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.866126
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:28   pts:1121120 pts_time:0.467133
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.88646
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:29   pts:1161160 pts_time:0.483817
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.974497
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:30   pts:1201200 pts_time:0.5005
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=7.31556
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:31   pts:1241240 pts_time:0.517183
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.99923
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:32   pts:1281280 pts_time:0.533867
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.10228
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:33   pts:1321320 pts_time:0.55055
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10208
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:34   pts:1361360 pts_time:0.567233
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=35.6239
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:35   pts:1401400 pts_time:0.583917
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.20284
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:36   pts:1441440 pts_time:0.6006
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=8.82212
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:37   pts:1481480 pts_time:0.617283
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.99796
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:38   pts:1521520 pts_time:0.633967
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=9.64311
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:39   pts:1561560 pts_time:0.65065
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.04041
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:40   pts:1601600 pts_time:0.667333
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.20681
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:41   pts:1641640 pts_time:0.684017
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.09223
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:42   pts:1681680 pts_time:0.7007
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=8.49854
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:43   pts:1721720 pts_time:0.717383
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.05184
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:44   pts:1761760 pts_time:0.734067
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.21036
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:45   pts:1801800 pts_time:0.75075
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10555
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:46   pts:1841840 pts_time:0.767433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=12.6606
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:47   pts:1881880 pts_time:0.784117
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.07916
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:48   pts:1921920 pts_time:0.8008
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=9.07772
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:49   pts:1961960 pts_time:0.817483
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.990067
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:50   pts:2002000 pts_time:0.834167
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=30.657
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:51   pts:2042040 pts_time:0.85085
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.02373
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:52   pts:2082080 pts_time:0.867533
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=7.30684
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:53   pts:2122120 pts_time:0.884217
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.848756
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:54   pts:2162160 pts_time:0.9009
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=8.64044
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:55   pts:2202200 pts_time:0.917583
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.817914
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:56   pts:2242240 pts_time:0.934267
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.21286
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:57   pts:2282280 pts_time:0.95095
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.783287
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:58   pts:2322320 pts_time:0.967633
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=8.01302
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:59   pts:2362360 pts_time:0.984317
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=0.83342
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:60   pts:2402400 pts_time:1.001
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.42356
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:61   pts:2442440 pts_time:1.017683
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.03664
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:62   pts:2482480 pts_time:1.034367
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=35.6421
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:63   pts:2522520 pts_time:1.05105
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.21898
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:64   pts:2562560 pts_time:1.067733
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.88128
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:65   pts:2602600 pts_time:1.084417
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.19073
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:66   pts:2642640 pts_time:1.1011
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=10.5381
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:67   pts:2682680 pts_time:1.117783
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1751
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:68   pts:2722720 pts_time:1.134467
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=7.14906
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:69   pts:2762760 pts_time:1.15115
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10352
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:70   pts:2802800 pts_time:1.167833
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.69065
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:71   pts:2842840 pts_time:1.184517
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.12687
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:72   pts:2882880 pts_time:1.2012
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.5883
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:73   pts:2922920 pts_time:1.217883
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.12553
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:74   pts:2962960 pts_time:1.234567
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=10.4616
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:75   pts:3003000 pts_time:1.25125
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.21282
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:76   pts:3043040 pts_time:1.267933
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=11.8319
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:77   pts:3083080 pts_time:1.284617
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.33827
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:78   pts:3123120 pts_time:1.3013
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=11.557
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:79   pts:3163160 pts_time:1.317983
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.6781
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:80   pts:3203200 pts_time:1.334667
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=9.38246
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:81   pts:3243240 pts_time:1.35135
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.88263
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:82   pts:3283280 pts_time:1.368033
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=55.7459
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:83   pts:3323320 pts_time:1.384717
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.92443
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:84   pts:3363360 pts_time:1.4014
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.94287
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:85   pts:3403400 pts_time:1.418083
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.3792
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:86   pts:3443440 pts_time:1.434767
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=5.94328
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:87   pts:3483480 pts_time:1.45145
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.20283
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:88   pts:3523520 pts_time:1.468133
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=9.37001
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:89   pts:3563560 pts_time:1.484817
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.41631
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:90   pts:3603600 pts_time:1.5015
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=15.2626
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:91   pts:3643640 pts_time:1.518183
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.18726
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:92   pts:3683680 pts_time:1.534867
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.12847
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:93   pts:3723720 pts_time:1.55155
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.12372
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:94   pts:3763760 pts_time:1.568233
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.34581
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:95   pts:3803800 pts_time:1.584917
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1408
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:96   pts:3843840 pts_time:1.6016
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.27304
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:97   pts:3883880 pts_time:1.618283
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.09762
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:98   pts:3923920 pts_time:1.634967
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.35281
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:99   pts:3963960 pts_time:1.65165
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.22434
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:100  pts:4004000 pts_time:1.668333
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.27214
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:101  pts:4044040 pts_time:1.685017
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.21657
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:102  pts:4084080 pts_time:1.7017
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.33772
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:103  pts:4124120 pts_time:1.718383
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1258
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:104  pts:4164160 pts_time:1.735067
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.296
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:105  pts:4204200 pts_time:1.75175
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10113
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:106  pts:4244240 pts_time:1.768433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.24012
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:107  pts:4284280 pts_time:1.785117
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10109
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:108  pts:4324320 pts_time:1.8018
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.25246
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:109  pts:4364360 pts_time:1.818483
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.06393
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:110  pts:4404400 pts_time:1.835167
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.05163
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:111  pts:4444440 pts_time:1.85185
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.12515
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:112  pts:4484480 pts_time:1.868533
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.86303
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:113  pts:4524520 pts_time:1.885217
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.14251
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:114  pts:4564560 pts_time:1.9019
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.82278
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:115  pts:4604600 pts_time:1.918583
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.06864
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:116  pts:4644640 pts_time:1.935267
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.83433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:117  pts:4684680 pts_time:1.95195
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.13707
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:118  pts:4724720 pts_time:1.968633
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.64334
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:119  pts:4764760 pts_time:1.985317
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.18942
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:120  pts:4804800 pts_time:2.002
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.77348
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:121  pts:4844840 pts_time:2.018683
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.18944
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:122  pts:4884880 pts_time:2.035367
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.05475
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:123  pts:4924920 pts_time:2.05205
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1408
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:124  pts:4964960 pts_time:2.068733
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.37343
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:125  pts:5005000 pts_time:2.085417
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.24361
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:126  pts:5045040 pts_time:2.1021
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.36975
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:127  pts:5085080 pts_time:2.118783
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.11044
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:128  pts:5125120 pts_time:2.135467
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.23735
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:129  pts:5165160 pts_time:2.15215
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.03771
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:130  pts:5205200 pts_time:2.168833
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.20508
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:131  pts:5245240 pts_time:2.185517
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.16885
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:132  pts:5285280 pts_time:2.2022
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.28608
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:133  pts:5325320 pts_time:2.218883
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10197
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:134  pts:5365360 pts_time:2.235567
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.34303
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:135  pts:5405400 pts_time:2.25225
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.0822
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:136  pts:5445440 pts_time:2.268933
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.17337
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:137  pts:5485480 pts_time:2.285617
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.09079
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:138  pts:5525520 pts_time:2.3023
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.95003
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:139  pts:5565560 pts_time:2.318983
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.08806
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:140  pts:5605600 pts_time:2.335667
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.29684
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:141  pts:5645640 pts_time:2.35235
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10455
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:142  pts:5685680 pts_time:2.369033
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.4348
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:143  pts:5725720 pts_time:2.385717
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.14345
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:144  pts:5765760 pts_time:2.4024
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.74723
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:145  pts:5805800 pts_time:2.419083
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.23939
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:146  pts:5845840 pts_time:2.435767
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.90655
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:147  pts:5885880 pts_time:2.45245
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.29269
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:148  pts:5925920 pts_time:2.469133
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.09922
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:149  pts:5965960 pts_time:2.485817
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.39583
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:150  pts:6006000 pts_time:2.5025
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.33477
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:151  pts:6046040 pts_time:2.519183
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.25938
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:152  pts:6086080 pts_time:2.535867
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.08788
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:153  pts:6126120 pts_time:2.55255
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.2521
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:154  pts:6166160 pts_time:2.569233
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.00806
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:155  pts:6206200 pts_time:2.585917
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.32856
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:156  pts:6246240 pts_time:2.6026
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.19712
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:157  pts:6286280 pts_time:2.619283
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.16279
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:158  pts:6326320 pts_time:2.635967
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.37244
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:159  pts:6366360 pts_time:2.65265
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.18482
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:160  pts:6406400 pts_time:2.669333
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.34783
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:161  pts:6446440 pts_time:2.686017
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.26744
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:162  pts:6486480 pts_time:2.7027
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.66168
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:163  pts:6526520 pts_time:2.719383
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.17424
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:164  pts:6566560 pts_time:2.736067
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.58056
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:165  pts:6606600 pts_time:2.75275
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.13838
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:166  pts:6646640 pts_time:2.769433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.48522
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:167  pts:6686680 pts_time:2.786117
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.28548
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:168  pts:6726720 pts_time:2.8028
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.54519
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:169  pts:6766760 pts_time:2.819483
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.2347
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:170  pts:6806800 pts_time:2.836167
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.31481
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:171  pts:6846840 pts_time:2.85285
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1601
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:172  pts:6886880 pts_time:2.869533
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.24505
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:173  pts:6926920 pts_time:2.886217
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.25915
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:174  pts:6966960 pts_time:2.9029
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.03865
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:175  pts:7007000 pts_time:2.919583
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.22246
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:176  pts:7047040 pts_time:2.936267
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.03037
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:177  pts:7087080 pts_time:2.95295
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.22578
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:178  pts:7127120 pts_time:2.969633
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.12445
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:179  pts:7167160 pts_time:2.986317
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.25831
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:180  pts:7207200 pts_time:3.003
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.9402
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:181  pts:7247240 pts_time:3.019683
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.23488
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:182  pts:7287280 pts_time:3.036367
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.59372
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:183  pts:7327320 pts_time:3.05305
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.19137
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:184  pts:7367360 pts_time:3.069733
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.43873
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:185  pts:7407400 pts_time:3.086417
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.23608
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:186  pts:7447440 pts_time:3.1031
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.38094
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:187  pts:7487480 pts_time:3.119783
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.11063
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:188  pts:7527520 pts_time:3.136467
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.31087
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:189  pts:7567560 pts_time:3.15315
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.133
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:190  pts:7607600 pts_time:3.169833
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.24368
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:191  pts:7647640 pts_time:3.186517
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.116
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:192  pts:7687680 pts_time:3.2032
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.24136
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:193  pts:7727720 pts_time:3.219883
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.09909
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:194  pts:7767760 pts_time:3.236567
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.39449
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:195  pts:7807800 pts_time:3.25325
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1674
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:196  pts:7847840 pts_time:3.269933
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.48405
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:197  pts:7887880 pts_time:3.286617
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.24244
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:198  pts:7927920 pts_time:3.3033
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.40289
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:199  pts:7967960 pts_time:3.319983
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.10217
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:200  pts:8008000 pts_time:3.336667
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.34044
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:201  pts:8048040 pts_time:3.35335
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.1035
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:202  pts:8088080 pts_time:3.370033
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.57863
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:203  pts:8128120 pts_time:3.386717
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.35738
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:204  pts:8168160 pts_time:3.4034
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.8769
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:205  pts:8208200 pts_time:3.420083
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.28799
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:206  pts:8248240 pts_time:3.436767
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.90575
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:207  pts:8288280 pts_time:3.45345
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.33078
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:208  pts:8328320 pts_time:3.470133
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.05463
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:209  pts:8368360 pts_time:3.486817
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.4712
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:210  pts:8408400 pts_time:3.5035
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.18282
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:211  pts:8448440 pts_time:3.520183
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.28079
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:212  pts:8488480 pts_time:3.536867
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.94692
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:213  pts:8528520 pts_time:3.55355
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.26527
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:214  pts:8568560 pts_time:3.570233
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.8186
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:215  pts:8608600 pts_time:3.586917
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.13004
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:216  pts:8648640 pts_time:3.6036
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.8749
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:217  pts:8688680 pts_time:3.620283
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.3134
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:218  pts:8728720 pts_time:3.636967
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.29493
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:219  pts:8768760 pts_time:3.65365
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.24427
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:220  pts:8808800 pts_time:3.670333
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.68462
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:221  pts:8848840 pts_time:3.687017
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.25264
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:222  pts:8888880 pts_time:3.7037
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.76272
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:223  pts:8928920 pts_time:3.720383
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.13712
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:224  pts:8968960 pts_time:3.737067
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.09418
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:225  pts:9009000 pts_time:3.75375
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.58251
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:226  pts:9049040 pts_time:3.770433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=42.7611
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:227  pts:9089080 pts_time:3.787117
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.48092
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:228  pts:9129120 pts_time:3.8038
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.03721
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:229  pts:9169160 pts_time:3.820483
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.14202
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:230  pts:9209200 pts_time:3.837167
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.62617
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:231  pts:9249240 pts_time:3.85385
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=3.68433
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:232  pts:9289280 pts_time:3.870533
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.42829
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:233  pts:9329320 pts_time:3.887217
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=4.32337
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:234  pts:9369360 pts_time:3.9039
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=2.15925
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:235  pts:9409400 pts_time:3.920583
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.23826
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:236  pts:9449440 pts_time:3.937267
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.43763
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:237  pts:9489480 pts_time:3.95395
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.22501
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:238  pts:9529520 pts_time:3.970633
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=6.73098
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:239  pts:9569560 pts_time:3.987317
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.19518
+[Parsed_metadata_3 @ 0000020d5c00e0c0] frame:240  pts:9609600 pts_time:4.004
+[Parsed_metadata_3 @ 0000020d5c00e0c0] lavfi.signalstats.YDIF=1.76352
+[Parsed_idet_0 @ 0000020d5c2b7ec0] Repeated Fields: Neither:   122 Top:     0 Bottom:     0
+[Parsed_idet_0 @ 0000020d5c2b7ec0] Single frame detection: TFF:    15 BFF:     3 Progressive:   104 Undetermined:     0
+[Parsed_idet_0 @ 0000020d5c2b7ec0] Multi frame detection: TFF:    13 BFF:     0 Progressive:   109 Undetermined:     0
+[out#0/null @ 0000020d5c0b8a40] video:99KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame=  240 fps=0.0 q=-0.0 Lsize=N/A time=00:00:04.00 bitrate=N/A speed=5.39x elapsed=0:00:00.74    

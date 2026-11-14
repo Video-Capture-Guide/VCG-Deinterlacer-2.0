@@ -7,6 +7,7 @@
 //! against captured output — see `tests/fixtures/` for real ffmpeg text.
 
 pub mod audio;
+pub mod cadence;
 pub mod classify;
 pub mod edges;
 pub mod halo;
