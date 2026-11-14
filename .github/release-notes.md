@@ -1,3 +1,39 @@
+## New in 2.0.7
+
+**8 mm and Super 8 home movies are now recognised and rebuilt properly.**
+
+A home movie that reached tape by pointing a camcorder at a projected picture
+is neither video nor a film transfer. The projector ran at its own speed — 18
+frames a second for Super 8, 16 for Regular 8, 24 for sound film — with no
+relation to the tape's field rate, so each film frame landed on three or four
+fields, with a blurred one wherever the projector changed frames mid-exposure.
+Deinterlaced as video, every frame is held for three or four and smears at
+each change; treated as a 3:2 film transfer it comes out worse.
+
+The scan now looks for that rhythm and, when it finds it, rebuilds every
+field and keeps one clean frame per film frame, so the file comes out at the
+projector's own speed. On a Super 8 tape measured here: 240 fields in, 72
+distinct frames out, no duplicate and no blend among them. The speed is 18
+unless the scan measured 16, and 16, 18 and 24 can all be set by hand.
+
+**The Check video page asks one plain question.** "Film or video" was three
+chips with the operation and the frame rate packed into each label, followed
+by paragraphs that belonged to whichever chip was lit. It is now "What kind of
+recording is this?" with a row for each answer — video camera, film transfer,
+home movie — each saying in a sentence what it is and what happens to it. The
+follow-up questions, projector speed or frames per second, sit inside the row
+you chose, and the longer explanation is one click away under "How this
+works". In Full control, the test results behind the choice of deinterlacing
+tool are folded away the same way.
+
+**Trim to the exact frame.** The bar on the Trim page gets you near a frame
+and no nearer: on a 22-minute tape one pixel of it is about fifty frames. The
+left and right arrow keys now move the playhead one frame at a time, and
+holding Shift moves it one second. There are Previous frame and Next frame
+buttons for the same thing, and the frame number is shown beside them. Click
+the bar roughly where you want, step to the frame, then press Start here or
+End here.
+
 ## New in 2.0.6
 
 **An export that finished could hang anyway, and now does not.**

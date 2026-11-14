@@ -173,8 +173,9 @@ combing left in the video-sourced scenes. Only the flagged frames pay the cost.
 **And you can overrule it.** Film or video is a measurement with a confidence
 attached, not a certainty: a film transfer where every scene is busy can read
 as video, and a mostly-static interlaced tape can read as film. The Check video
-page shows which it decided and lets you change it — including when it found
-nothing, behind an "Override detection" link.
+page asks "What kind of recording is this?", shows which the scan decided —
+video camera, film transfer or home movie — and lets you change it, including
+when it found nothing, behind an "Override detection" link.
 
 ### Home movies (8 mm and Super 8)
 
@@ -214,6 +215,11 @@ preview:
 **Trim** · **Levels** · **Colour tint** · **Noise** · **Halos** ·
 **Colour bleeding** · **Upscale** · **Audio** · **Watermark** · **Dithering** ·
 **Film grain**
+
+Trim cuts the leader and the tail off a capture. Drag the two ends of the bar
+to get close, then step the playhead with the left and right arrow keys — one
+frame a press, one second with Shift held — and set the start or the end
+where it stands.
 
 A note on denoising, since it is the one most often asked about: QTGMC performs
 none. When the Noise step is enabled it runs *after* the deinterlacer, on the
