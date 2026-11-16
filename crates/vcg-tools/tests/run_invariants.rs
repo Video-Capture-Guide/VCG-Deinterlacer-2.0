@@ -106,6 +106,37 @@ fn a_hung_process_is_killed_at_the_deadline() {
     );
 }
 
+/// Work that reads a whole capture has no deadline — only a Stop button.
+/// A deadline here is what delivered tapes with their sound missing.
+#[test]
+fn a_whole_file_pass_runs_until_it_is_stopped() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use vcg_tools::run::run_until_stopped;
+
+    // Left alone, it finishes and reports its own exit.
+    let never = AtomicBool::new(false);
+    let out = run_until_stopped(shell("echo done"), &never).expect("spawn");
+    assert!(out.success() && !out.timed_out);
+    assert!(out.stdout.contains("done"));
+
+    // Stopped, it is killed promptly rather than waited out.
+    #[cfg(windows)]
+    let script = "ping -n 30 127.0.0.1 >nul";
+    #[cfg(not(windows))]
+    let script = "sleep 30";
+    let stop = Arc::new(AtomicBool::new(false));
+    let flag = stop.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(600));
+        flag.store(true, Ordering::Relaxed);
+    });
+    let started = Instant::now();
+    let out = run_until_stopped(shell(script), &stop).expect("spawn");
+    assert!(out.timed_out, "should have reported being stopped");
+    assert!(started.elapsed() < Duration::from_secs(10), "{:?}", started.elapsed());
+}
+
 #[test]
 fn a_missing_program_is_an_error_not_a_panic() {
     let mut cmd = Command::new("vcg-definitely-not-a-real-program");

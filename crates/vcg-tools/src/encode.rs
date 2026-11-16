@@ -45,6 +45,11 @@ pub const STOPPED: &str = "the export was stopped";
 #[derive(Debug, Clone)]
 pub enum Phase {
     ExtractingAudio,
+    /// A home movie's film frames are being chosen: the script reads the
+    /// whole tape before it produces its first frame, and for those minutes
+    /// ffmpeg has nothing to report. Without a name for it the page would
+    /// sit at 0% looking hung.
+    FindingFilmFrames,
     /// Seconds of output written, against the total expected.
     Encoding {
         out_seconds: f64,
@@ -62,7 +67,7 @@ impl Phase {
     /// Fraction complete, for a progress bar.
     pub fn fraction(&self) -> f32 {
         match self {
-            Phase::ExtractingAudio => 0.0,
+            Phase::ExtractingAudio | Phase::FindingFilmFrames => 0.0,
             Phase::Encoding {
                 out_seconds,
                 total_seconds,
@@ -101,22 +106,99 @@ pub struct Outcome {
 
 type Progress<'a> = &'a mut dyn FnMut(Phase);
 
+/// Whether the source has a sound track at all. `None` when it could not be
+/// asked — no ffprobe, or one that failed on this file.
+fn has_audio_stream(tools: &ToolPaths, file: &Path) -> Option<bool> {
+    let ffprobe = tools.ffprobe_path()?;
+    let out = run_tool(
+        ffprobe,
+        [
+            "-v",
+            "error",
+            "-select_streams",
+            "a",
+            "-show_entries",
+            "stream=index",
+            "-of",
+            "csv=p=0",
+            &file.display().to_string(),
+        ],
+    )
+    .ok()?;
+    out.success().then(|| !out.stdout.trim().is_empty())
+}
+
+/// What the extraction amounts to: sound, no sound, or a failure.
+///
+/// These were once two outcomes, and the missing third is what shipped silent
+/// files. Any extraction that did not leave a WAV behind was read as "the
+/// source has no sound track", which is a legitimate thing for a tape to be —
+/// so a killed, failed or timed-out extraction of a tape that plainly had
+/// sound was reported, on the finished page, as a source with none.
+///
+/// `has_stream` is what ffprobe said beforehand. When it could not say,
+/// ffmpeg's own complaint about having nothing to map is taken as the answer;
+/// any other failure is a failure.
+fn audio_result(
+    has_stream: Option<bool>,
+    out: &crate::run::Output,
+    wav_bytes: u64,
+) -> Result<bool, String> {
+    if out.success() {
+        // A track with nothing in it leaves a bare header.
+        return Ok(wav_bytes > 1000);
+    }
+    let nothing_to_map = out.stderr.contains("does not contain any stream")
+        || out.stderr.contains("matches no streams");
+    if has_stream == Some(false) || (has_stream.is_none() && nothing_to_map) {
+        return Ok(false);
+    }
+    Err(format!(
+        "the sound could not be read from the source, so nothing was exported — \
+         a video with its sound missing is not a finished export.\n{}",
+        tail(&out.stderr, 1200)
+    ))
+}
+
 /// Extract the source audio to a temporary WAV.
 ///
 /// Decoded rather than copied, because the source codec may not be legal in
 /// the output container and because a tape capture's audio is small next to
 /// its video.
+///
+/// `Ok(false)` is a source with no sound; anything that goes wrong on a
+/// source that has some is an error. See `audio_result`.
 fn extract_audio(
     tools: &ToolPaths,
     config: &Config,
     file: &Path,
     dest: &Path,
     ranges: &[(f64, f64)],
-) -> bool {
-    let Some(ffmpeg) = tools.ffmpeg_path() else {
-        return false;
-    };
+    cancel: &AtomicBool,
+) -> Result<bool, String> {
+    let ffmpeg = tools.ffmpeg_path().ok_or("ffmpeg was not found")?;
+    let has_stream = has_audio_stream(tools, file);
+    if has_stream == Some(false) {
+        return Ok(false);
+    }
 
+    let args = audio_args(config, file, dest, ranges);
+
+    // No deadline: this reads the whole capture, and how long that takes is
+    // the disk's business. See `run_until_stopped`.
+    let mut cmd = crate::run::command(ffmpeg);
+    cmd.args(&args);
+    let out = crate::run::run_until_stopped(cmd, cancel)
+        .map_err(|e| format!("ffmpeg could not be started to read the sound ({e})"))?;
+    if cancel.load(Ordering::Relaxed) {
+        return Err(STOPPED.to_string());
+    }
+    let wav_bytes = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
+    audio_result(has_stream, &out, wav_bytes)
+}
+
+/// The ffmpeg arguments that write the export's sound to `dest`.
+fn audio_args(config: &Config, file: &Path, dest: &Path, ranges: &[(f64, f64)]) -> Vec<String> {
     let mut args: Vec<String> = vec![
         "-hide_banner".into(),
         "-i".into(),
@@ -139,6 +221,16 @@ fn extract_audio(
         let c = config.audio_source_channel.min(1);
         format!("pan=stereo|c0=c{c}|c1=c{c}")
     });
+    // A home movie conformed to its nominal speed runs longer or shorter
+    // than the tape, and the sound has to run with it. `atempo` changes the
+    // speed and keeps the pitch; the alternative, resampling, would drop a
+    // narrator's voice by a third of a semitone for the sake of 3%.
+    let stretch = config.film_stretch();
+    let tempo = ((stretch - 1.0).abs() >= 0.0005).then(|| format!("atempo={:.6}", 1.0 / stretch));
+    let pan = match (pan, tempo) {
+        (Some(p), Some(t)) => Some(format!("{p},{t}")),
+        (p, t) => p.or(t),
+    };
 
     if !ranges.is_empty() {
         let mut graph = String::new();
@@ -174,11 +266,7 @@ fn extract_audio(
         "-y".into(),
         dest.display().to_string(),
     ]);
-
-    let out = run_tool(ffmpeg, &args);
-    // A source with no audio track is normal, not a failure.
-    matches!(out, Ok(o) if o.success())
-        && std::fs::metadata(dest).map(|m| m.len() > 1000).unwrap_or(false)
+    args
 }
 
 /// Seconds of output the export should produce.
@@ -186,7 +274,15 @@ fn extract_audio(
 /// Measured in output time rather than frames, because the frame count changes
 /// with the mode — double-rate doubles it, inverse telecine reduces it — while
 /// the running time does not.
+///
+/// One mode does change it: a home movie conformed to its nominal speed. See
+/// `Config::film_stretch`.
 fn expected_output_seconds(config: &Config, source_seconds: f64, source_fps: f64) -> f64 {
+    kept_source_seconds(config, source_seconds, source_fps) * config.film_stretch()
+}
+
+/// Seconds of the source the export keeps.
+fn kept_source_seconds(config: &Config, source_seconds: f64, source_fps: f64) -> f64 {
     if config.trim_ranges.is_empty() {
         return source_seconds;
     }
@@ -275,7 +371,7 @@ fn encode_command(
     for arg in &encoder.args {
         cmd.arg(arg);
     }
-    cmd.args(["-r", output_frame_rate(config)]);
+    cmd.args(["-r", &output_frame_rate(config)]);
 
     if single_pass_audio {
         // Explicit maps, because naming an audio input disables FFmpeg's
@@ -444,10 +540,19 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
     report(Phase::ExtractingAudio);
     let audio_path = std::env::temp_dir().join(format!("vcg-audio-{}.wav", std::process::id()));
     let ranges = trim_seconds(config, source_fps);
-    let had_audio = extract_audio(tools, config, source, &audio_path, &ranges);
+    let had_audio = match extract_audio(tools, config, source, &audio_path, &ranges, &cancel) {
+        Ok(found) => found,
+        Err(why) => {
+            let _ = std::fs::remove_file(&audio_path);
+            return Err(why);
+        }
+    };
 
     // ── Script ──────────────────────────────────────────────────────────────
     let mut config = config.clone();
+    // The note written into the file says what was done, not what was asked
+    // for: with no sound there was no channel to repair.
+    config.fix_one_sided_audio &= had_audio;
     // The script reads its source from the config, so it is set from the file
     // being exported rather than trusted to already match.
     config.input_path = source.display().to_string();
@@ -488,6 +593,9 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
         true,
     );
 
+    if config.rebuilds_film() {
+        report(Phase::FindingFilmFrames);
+    }
     let result = pipe_with_progress(producer, consumer, total_seconds, report, &cancel);
     let _ = std::fs::remove_file(&script_path);
 
@@ -870,6 +978,135 @@ mod meta_tests {
     #[test]
     fn whitespace_around_a_good_date_is_fine() {
         assert_eq!(iso_date("  2001-05-04 ").as_deref(), Some("2001-05-04T00:00:00Z"));
+    }
+}
+
+#[cfg(test)]
+mod film_clock_tests {
+    use super::{audio_args, expected_output_seconds};
+    use std::path::Path;
+    use vcg_core::config::{Config, FilmOutput, FilmRate};
+
+    fn film(output: FilmOutput) -> Config {
+        Config {
+            home_movie: true,
+            home_movie_rate: FilmRate::Fps18,
+            home_movie_fps: Some(18.61),
+            home_movie_output: output,
+            ..Config::default()
+        }
+    }
+
+    fn filter(config: &Config, ranges: &[(f64, f64)]) -> String {
+        let args = audio_args(config, Path::new("in.avi"), Path::new("out.wav"), ranges);
+        let flag = if ranges.is_empty() { "-af" } else { "-filter_complex" };
+        args.iter()
+            .position(|a| a == flag)
+            .map(|i| args[i + 1].clone())
+            .unwrap_or_default()
+    }
+
+    /// Two of the three clocks leave the running time alone, and the export
+    /// must not expect otherwise or touch the sound.
+    #[test]
+    fn the_measured_and_video_clocks_keep_the_tapes_running_time() {
+        for output in [FilmOutput::Measured, FilmOutput::Video] {
+            let c = film(output);
+            assert_eq!(expected_output_seconds(&c, 689.0, 29.97), 689.0, "{output:?}");
+            assert!(!filter(&c, &[]).contains("atempo"), "{output:?}");
+        }
+    }
+
+    /// A reel projected at 18.61 and written at 18 runs 18.61/18 as long.
+    /// The verification that follows an export rejects anything 2% off its
+    /// expected length, so without this a conformed export fails as
+    /// "did not finish" — and the sound has to be slowed by the same amount
+    /// or it ends 23 seconds before the picture does.
+    #[test]
+    fn conforming_stretches_the_expected_length_and_the_sound_together() {
+        let c = film(FilmOutput::Conform);
+        let expected = expected_output_seconds(&c, 689.0, 29.97);
+        assert!((expected - 689.0 * 18.61 / 18.0).abs() < 1e-6, "{expected}");
+        assert!(filter(&c, &[]).contains("atempo=0.967222"), "{}", filter(&c, &[]));
+
+        // With a trim, after the pieces are joined; with the channel repair,
+        // in the same chain rather than a second -af that ffmpeg would refuse.
+        let trimmed = filter(&c, &[(10.0, 20.0)]);
+        assert!(trimmed.contains("concat=n=1:v=0:a=1,atempo=0.967222[out]"), "{trimmed}");
+        let both = Config { fix_one_sided_audio: true, ..c.clone() };
+        assert!(filter(&both, &[]).contains("pan=stereo|c0=c0|c1=c0,atempo=0.967222"));
+        let kept = expected_output_seconds(
+            &Config { trim_ranges: vec![(0, 2996)], ..c },
+            689.0,
+            29.97,
+        );
+        assert!((kept - 100.0 * 18.61 / 18.0).abs() < 1e-6, "{kept}");
+    }
+
+    #[test]
+    fn nothing_but_a_home_movie_is_ever_stretched() {
+        let video = Config { home_movie: false, ..film(FilmOutput::Conform) };
+        assert_eq!(video.film_stretch(), 1.0);
+        assert!(!filter(&video, &[]).contains("atempo"));
+        // A reel that ran at its nominal speed has nothing to conform.
+        let exact = Config { home_movie_fps: None, ..film(FilmOutput::Conform) };
+        assert_eq!(exact.film_stretch(), 1.0);
+        assert!(!filter(&exact, &[]).contains("atempo"));
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    use super::audio_result;
+    use crate::run::Output;
+
+    fn out(status: Option<i32>, stderr: &str, killed: bool) -> Output {
+        Output {
+            status,
+            stdout: String::new(),
+            stderr: stderr.to_string(),
+            timed_out: killed,
+        }
+    }
+
+    #[test]
+    fn a_wav_that_was_written_is_sound() {
+        assert_eq!(audio_result(Some(true), &out(Some(0), "", false), 180_000_000), Ok(true));
+        assert_eq!(audio_result(None, &out(Some(0), "", false), 180_000_000), Ok(true));
+    }
+
+    #[test]
+    fn a_bare_header_is_an_empty_track_not_a_failure() {
+        assert_eq!(audio_result(Some(true), &out(Some(0), "", false), 78), Ok(false));
+    }
+
+    /// The one that shipped: the extraction was killed part-way through a
+    /// tape with sound, and the export carried on as if the tape were silent.
+    #[test]
+    fn a_killed_extraction_of_a_tape_with_sound_is_an_error() {
+        let killed = out(None, "size=  60000KiB time=00:05:20.00", true);
+        assert!(audio_result(Some(true), &killed, 61_000_000).is_err());
+        // Not knowing whether there was a track is no reason to assume not.
+        assert!(audio_result(None, &killed, 61_000_000).is_err());
+    }
+
+    #[test]
+    fn a_failed_extraction_of_a_tape_with_sound_is_an_error_that_quotes_ffmpeg() {
+        let failed = out(Some(1), "Error opening output file: Permission denied", false);
+        let why = audio_result(Some(true), &failed, 0).unwrap_err();
+        assert!(why.contains("Permission denied"), "{why}");
+    }
+
+    #[test]
+    fn a_source_with_no_sound_track_is_still_not_a_failure() {
+        let none = out(Some(1), "Output file does not contain any stream", false);
+        assert_eq!(audio_result(Some(false), &none, 0), Ok(false));
+        // ffprobe could not say, so ffmpeg's own word is taken for it…
+        assert_eq!(audio_result(None, &none, 0), Ok(false));
+        let trimmed = out(Some(1), "Stream specifier ':a' in filtergraph matches no streams.", false);
+        assert_eq!(audio_result(None, &trimmed, 0), Ok(false));
+        // …but not against ffprobe, which counted a track.
+        assert!(audio_result(Some(true), &none, 0).is_err());
     }
 }
 

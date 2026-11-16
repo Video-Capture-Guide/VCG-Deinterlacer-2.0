@@ -383,11 +383,11 @@ fn interlacing(report: &Report, config: &Config) -> Finding {
                 .into(),
             action: Some(format!(
                 "rebuild the film frames at the projector's {} frames per second",
-                config.home_movie_rate.fps()
+                config.film_fps_text()
             )),
             details: format!(
                 "No pulldown removal · {measured} → home-movie transfer; sRestore at {} fps.{}",
-                config.home_movie_rate.fps(),
+                config.film_fps_text(),
                 if overridden {
                     format!(" The scan read this as {found_name}; you chose home movie by hand.")
                 } else {

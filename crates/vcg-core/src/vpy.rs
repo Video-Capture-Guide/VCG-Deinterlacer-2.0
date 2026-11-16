@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 use crate::colorspace::needs_601_to_709;
 use crate::config::{
     CaptureMethod, ColorCorrection, ColorMatrix, Config, CropPreset, DehaloMode, DitherMethod,
-    FieldOrder, LevelsAdjustment, NoiseLevel, OutputFormat, QtgmcImpl, SourceClass, VideoFormat,
+    FieldOrder, FilmOutput, LevelsAdjustment, NoiseLevel, OutputFormat, QtgmcImpl, SourceClass,
+    VideoFormat,
 };
 
 /// The width that reads as 4:3 at full height, by how the source was sampled.
@@ -863,6 +864,12 @@ fn deinterlace(s: &mut Script, config: &Config) {
         "single-rate"
     };
 
+    if config.home_movie {
+        s.push("# The fields as captured, kept for choosing the film frames below");
+        s.push("_vcg_fields = clip");
+        s.gap();
+    }
+
     if config.qtgmc_impl == QtgmcImpl::Modern {
         s.push("# QTGMC Deinterlacing — vs-jetpack QTempGaussMC");
         s.push(format!(
@@ -879,7 +886,7 @@ fn deinterlace(s: &mut Script, config: &Config) {
     s.gap();
 
     if config.home_movie {
-        home_movie(s, config);
+        home_movie(s, config, tff);
     }
 }
 
@@ -894,34 +901,170 @@ fn deinterlace(s: &mut Script, config: &Config) {
 /// at each change; field-matched as 3:2 it pairs fields that never shared a
 /// film frame and then drops one frame in five of an 18 fps picture.
 ///
-/// sRestore reads the bobbed clip, finds the blends, and keeps one clean
+/// sRestore reads the bobbed fields, finds the blends, and keeps one clean
 /// field per film frame at the rate it is told — so the output is one frame
 /// per film frame, which is what the camera that shot the film produced.
-/// Measured on a Super 8 transfer: 240 bobbed fields became 72 frames at 18
-/// fps with no duplicate and no blend left in them.
 ///
 /// It is havsfunc's, not the JET rewrite's — vs-jetpack has no equivalent,
 /// only fixed-cycle field matchers that a real-time transfer's drifting
 /// blends defeat — so havsfunc is imported for this call whichever
 /// deinterlacer is chosen.
-fn home_movie(s: &mut Script, config: &Config) {
-    let fps = config.home_movie_rate.fps();
+///
+/// # Why it is not simply called
+///
+/// `clip = haf.srestore(clip, frate=18)` is what this emitted first, and it
+/// did nothing. sRestore keeps a running history of the last eight fields
+/// and trusts it only when the frame it is asked for is the one after the
+/// last; it ends in `ChangeFPS(last.std.Cache(make_linear=True), …)`, and
+/// that cache was what made the frames arrive in order. The bundled
+/// VapourSynth no longer honours the option — "the original clip has been
+/// passed through instead which may cause severe issues" — so ChangeFPS asks for every third or
+/// fourth frame, the history is thrown away on every call, and no blend or
+/// clean-frame test can fire. Measured on 20 seconds of a Super 8 transfer:
+/// the output was identical, frame for frame, to plain decimation; 8.4% of
+/// the film frames were dropped, others repeated, and the blends kept.
+///
+/// So the decisions are made first and in order, and the export is handed
+/// the answers:
+///
+/// * sRestore is given a stand-in picture — 16x16 frames that each carry
+///   their own number — and a cheap bob of the captured fields to judge by
+///   (`dclip`, which it shrinks to a thumbnail anyway). QTGMC is not run for
+///   this.
+/// * Its closing `ChangeFPS` call is borrowed for the length of the call, to
+///   take the clip *before* decimation rather than after.
+/// * That clip is read from start to end, one frame at a time, and the
+///   number each frame carries is the field sRestore chose there.
+/// * The export then takes those fields from the QTGMC bob by lookup, which
+///   has no state to lose: any frame can be asked for in any order.
+///
+/// The same 20 seconds, this way and at the measured 18.66 fps: 203 of 203
+/// film frames kept, none dropped, no blends, one repeat.
+///
+/// The cost is one extra read of the tape before the first frame appears,
+/// at a few hundred fields a second.
+fn home_movie(s: &mut Script, config: &Config, tff: &str) {
+    let fps = config.film_fps_text();
+    let (num, den) = config.film_fps_ratio();
     s.push(format!(
-        "# Home-movie film transfer — resolve the projector's {fps} fps from the bobbed fields"
+        "# Home-movie film transfer — rebuild the projector's {fps} fps from the bobbed fields"
     ));
     s.push("# Each film frame was filmed off a projector onto three or four fields, with a");
     s.push("# blended field wherever the frame changed mid-exposure. sRestore keeps one");
     s.push("# clean field per film frame and drops the repeats and the blends.");
     s.push("#");
-    s.push("# VapourSynth prints one line about an obsolete cache call inside sRestore");
-    s.push("# (\"Explicitly instantiated a Cache with make_linear set\"); it is harmless and");
-    s.push("# the output is unaffected.");
-    s.push(format!("clip = haf.srestore(clip, frate={fps})"));
-    // sRestore derives its output rate from the 60000/1001 field rate and
-    // leaves an unreduced fraction a hair under the whole number
-    // (162180000/9010001 for 18). The muxer is told the whole number, so
-    // the clip says the same.
-    s.push(format!("clip = core.std.AssumeFPS(clip, fpsnum={fps}, fpsden=1)"));
+    s.push("# sRestore only works when it sees the fields in order, and VapourSynth no");
+    s.push("# longer guarantees that (the \"Cache with make_linear\" line it prints says");
+    s.push("# so). Its choices are therefore made here, up front and in order, on a cheap");
+    s.push("# bob of the captured fields; the picture is then taken from the QTGMC bob by");
+    s.push("# lookup. This reads the tape once before the first frame is produced.");
+    s.push(format!(
+        "_vcg_det = core.resize.Bob(_vcg_fields, filter=\"bicubic\", tff={tff})"
+    ));
+    s.push("_vcg_bob = clip");
+    s.push("if len(_vcg_det) != len(_vcg_bob):");
+    s.push("    raise RuntimeError(");
+    s.push("        \"The home-movie rebuild needs one bobbed frame per field, and got \"");
+    s.push("        + str(len(_vcg_bob)) + \" frames for \" + str(len(_vcg_det)) + \" fields.\"");
+    s.push("    )");
+    s.gap();
+    s.push("# A stand-in for the picture: each frame carries its own number.");
+    s.push("_vcg_blank = core.std.BlankClip(");
+    s.push("    format=vs.YUV420P8, width=16, height=16, length=len(_vcg_bob),");
+    s.push("    fpsnum=_vcg_bob.fps_num, fpsden=_vcg_bob.fps_den,");
+    s.push(")");
+    s.push("def _vcg_number(n, f):");
+    s.push("    fo = f.copy()");
+    s.push("    fo.props[\"vcg_i\"] = n");
+    s.push("    return fo");
+    s.push("_vcg_proxy = core.std.ModifyFrame(_vcg_blank, _vcg_blank, _vcg_number)");
+    s.gap();
+    s.push("# sRestore ends in ChangeFPS(...); borrow that call to take the clip before it.");
+    s.push("_vcg_grab = {}");
+    s.push("_vcg_changefps = haf.ChangeFPS");
+    s.push("def _vcg_take(c, num, den=1):");
+    s.push("    _vcg_grab.update(clip=c, num=num, den=den)");
+    s.push("    return c");
+    s.push("haf.ChangeFPS = _vcg_take");
+    s.push("try:");
+    s.push(format!(
+        "    haf.srestore(_vcg_proxy, frate={fps}, dclip=_vcg_det)"
+    ));
+    s.push("finally:");
+    s.push("    haf.ChangeFPS = _vcg_changefps");
+    s.push("if \"clip\" not in _vcg_grab:");
+    s.push("    raise RuntimeError(");
+    s.push("        \"This havsfunc's sRestore does not end in ChangeFPS, so the home-movie \"");
+    s.push("        \"rebuild cannot read its choices. Use the havsfunc bundled with VCG Deinterlacer.\"");
+    s.push("    )");
+    s.gap();
+    s.push("# The choices, in order: which field sRestore would show at each position.");
+    s.push("_vcg_last = len(_vcg_bob) - 1");
+    s.push("_vcg_sel = [");
+    s.push("    min(max(int(f.props[\"vcg_i\"]), 0), _vcg_last)");
+    s.push("    for f in _vcg_grab[\"clip\"].frames(prefetch=1, backlog=0, close=True)");
+    s.push("]");
+    s.gap();
+    s.push("# Decimate to the film rate exactly as ChangeFPS would, as a list.");
+    s.push("_vcg_factor = (_vcg_grab[\"num\"] / _vcg_grab[\"den\"]) * (_vcg_bob.fps_den / _vcg_bob.fps_num)");
+    s.push("_vcg_picks = [");
+    s.push("    _vcg_sel[min(int(m / _vcg_factor), _vcg_last)]");
+    s.push("    for m in range(int(len(_vcg_bob) * _vcg_factor))");
+    s.push("]");
+
+    // The clock the file is given. The film frames are settled by here; this
+    // only decides how long each is shown, and stays a list so the lookup
+    // below is still the only thing between the bob and the output.
+    let (out_num, out_den) = match config.home_movie_output {
+        FilmOutput::Measured => (num, den),
+        FilmOutput::Video => {
+            let (vn, vd) = if config.format == VideoFormat::Pal { (25, 1) } else { (30000, 1001) };
+            s.gap();
+            s.push(format!(
+                "# Shown at the tape's own {} fps: each film frame held for one or two",
+                if config.format == VideoFormat::Pal { "25" } else { "29.97" }
+            ));
+            s.push("# video frames. Same running time, and a rate every editor has.");
+            s.push(format!(
+                "_vcg_hold = ({vn} / {vd}) / ({num} / {den})"
+            ));
+            s.push("_vcg_picks = [");
+            s.push("    _vcg_picks[min(int(m / _vcg_hold), len(_vcg_picks) - 1)]");
+            // Counted from the fields, not from the film frames: rounding
+            // down twice would end the picture a frame before the sound.
+            s.push(format!(
+                "    for m in range(int(len(_vcg_bob) * ({vn} / {vd}) * _vcg_bob.fps_den / _vcg_bob.fps_num))"
+            ));
+            s.push("]");
+            (vn, vd)
+        }
+        FilmOutput::Conform => {
+            let nominal = config.home_movie_rate.fps();
+            s.gap();
+            s.push(format!(
+                "# Conformed to {nominal} fps: the same frames on the clock the film was shot"
+            ));
+            s.push(format!(
+                "# to, so the file runs {:.1}% {} than the tape and the sound is stretched to fit.",
+                (config.film_stretch() - 1.0).abs() * 100.0,
+                if config.film_stretch() >= 1.0 { "longer" } else { "shorter" }
+            ));
+            (nominal * 100, 100)
+        }
+    };
+    s.push("def _vcg_pick(n):");
+    s.push("    return _vcg_bob[_vcg_picks[n]] * (n + 1)");
+    s.push("clip = core.std.FrameEval(");
+    s.push(format!(
+        "    core.std.BlankClip(_vcg_bob, length=len(_vcg_picks), fpsnum={out_num}, fpsden={out_den}),"
+    ));
+    s.push("    _vcg_pick,");
+    s.push(")");
+    // The lookup has the rate already; said again so the clip's rate is the
+    // reduced fraction the muxer is told, not whatever BlankClip kept.
+    s.push(format!(
+        "clip = core.std.AssumeFPS(clip, fpsnum={out_num}, fpsden={out_den})"
+    ));
     s.gap();
 }
 

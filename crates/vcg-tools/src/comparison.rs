@@ -100,7 +100,13 @@ pub fn render(
 
     let clip = CLIP_SECONDS.min(duration);
     let out_start = ((duration - clip) / 2.0).max(0.0);
-    let source_start = source_time_for_output(&config.trim_ranges, source_fps, out_start);
+    // A conformed home movie runs on a stretched clock; the source moment is
+    // found on the tape's own.
+    let source_start = source_time_for_output(
+        &config.trim_ranges,
+        source_fps,
+        out_start / config.film_stretch(),
+    );
 
     let dest = comparison_path(output);
     let args = command_args(

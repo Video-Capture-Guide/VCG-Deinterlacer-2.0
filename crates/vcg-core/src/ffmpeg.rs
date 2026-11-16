@@ -4,7 +4,7 @@
 //! `_estimate_output_width`.
 
 use crate::colorspace::output_cs_tag;
-use crate::config::{Config, CropPreset, FieldOrder, FilmRate, OutputFormat, VideoFormat};
+use crate::config::{Config, CropPreset, FieldOrder, FilmOutput, OutputFormat, VideoFormat};
 
 /// A chosen encoder: the FFmpeg args and the container extension that must
 /// accompany them. Returning these together makes it impossible to pair
@@ -58,32 +58,35 @@ pub fn output_args(config: &Config) -> OutputArgs {
 ///
 /// Used to stamp the muxed output so audio and video stay in sync and playback
 /// runs at the correct speed.
-pub fn output_frame_rate(config: &Config) -> &'static str {
+pub fn output_frame_rate(config: &Config) -> String {
     let pal = config.format.is_pal();
 
-    // Inverse telecine restores the native progressive film rate.
-    if config.ivtc_mode {
-        return if pal { "25" } else { "24000/1001" };
-    }
     // A home movie comes out at the projector's own speed, whichever
-    // standard the tape was: sRestore keeps one frame per film frame.
-    if config.home_movie {
-        return match config.home_movie_rate {
-            FilmRate::Fps16 => "16",
-            FilmRate::Fps18 => "18",
-            FilmRate::Fps24 => "24",
+    // standard the tape was: one frame per film frame, at the speed the
+    // projector was measured running at when it was measured.
+    if config.home_movie && !config.ivtc_mode {
+        return match config.home_movie_output {
+            FilmOutput::Measured => config.film_fps_text(),
+            FilmOutput::Video => (if pal { "25" } else { "30000/1001" }).to_string(),
+            FilmOutput::Conform => config.home_movie_rate.fps().to_string(),
         };
     }
-    // No frame-rate change — carry the source rate through.
-    if config.field_order == FieldOrder::Progressive {
-        return if pal { "25" } else { "30000/1001" };
-    }
-    // Double-rate bob: one output frame per interlaced field.
-    if config.double_rate {
-        return if pal { "50" } else { "60000/1001" };
-    }
-    // Single-rate QTGMC: one output frame per interlaced frame.
-    if pal { "25" } else { "30000/1001" }
+    let fixed = if config.ivtc_mode {
+        // Inverse telecine restores the native progressive film rate.
+        if pal { "25" } else { "24000/1001" }
+    } else if config.field_order == FieldOrder::Progressive {
+        // No frame-rate change — carry the source rate through.
+        if pal { "25" } else { "30000/1001" }
+    } else if config.double_rate {
+        // Double-rate bob: one output frame per interlaced field.
+        if pal { "50" } else { "60000/1001" }
+    } else if pal {
+        // Single-rate QTGMC: one output frame per interlaced frame.
+        "25"
+    } else {
+        "30000/1001"
+    };
+    fixed.to_string()
 }
 
 /// Best-effort output frame width, mirroring the .vpy sizing.

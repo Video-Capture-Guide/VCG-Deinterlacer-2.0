@@ -1276,9 +1276,9 @@ fn a_home_movie_is_bobbed_and_then_handed_to_srestore_at_the_projectors_rate() {
     // every field on its own.
     assert!(s.contains("FPSDivisor=1"), "{s}");
     assert!(!s.contains("FPSDivisor=2"));
-    assert!(s.contains("clip = haf.srestore(clip, frate=18)"), "{s}");
-    assert!(s.contains("core.std.AssumeFPS(clip, fpsnum=18, fpsden=1)"), "{s}");
-    assert!(pos(&s, "haf.srestore(") < pos(&s, "AssumeFPS(clip, fpsnum=18"));
+    assert!(s.contains("haf.srestore(_vcg_proxy, frate=18, dclip=_vcg_det)"), "{s}");
+    assert!(s.contains("core.std.AssumeFPS(clip, fpsnum=1800, fpsden=100)"), "{s}");
+    assert!(pos(&s, "haf.srestore(") < pos(&s, "AssumeFPS(clip, fpsnum=1800"));
     assert!(pos(&s, "haf.QTGMC(") < pos(&s, "haf.srestore("));
     // Not the telecine path.
     assert!(!s.contains("core.vivtc.VFM"));
@@ -1307,9 +1307,116 @@ fn the_projector_speed_reaches_srestore_and_the_muxer() {
     ] {
         let config = Config { home_movie: true, home_movie_rate: rate, ..Config::default() };
         let s = script(&config);
-        assert!(s.contains(&format!("haf.srestore(clip, frate={fps})")), "{rate:?}: {s}");
+        assert!(s.contains(&format!("haf.srestore(_vcg_proxy, frate={fps},")), "{rate:?}: {s}");
         assert_eq!(output_frame_rate(&config), fps, "{rate:?}: the muxer disagrees");
     }
+}
+
+/// sRestore called on the picture itself is plain decimation: without a
+/// linear cache its history is wiped on every call and nothing is detected.
+/// Measured — the output matched ChangeFPS frame for frame, 360 of 360, with
+/// 8.4% of the film frames dropped. Its choices have to be read out in order
+/// and applied by lookup, and this is the shape of that.
+#[test]
+fn srestore_is_asked_for_its_choices_in_order_and_never_run_on_the_picture() {
+    let s = script(&Config { home_movie: true, ..Config::default() });
+    assert!(!s.contains("haf.srestore(clip"), "{s}");
+    assert!(!s.contains("clip = haf.srestore("), "{s}");
+    // The fields are kept from before the deinterlacer, and judged there.
+    assert!(pos(&s, "_vcg_fields = clip") < pos(&s, "haf.QTGMC("));
+    assert!(s.contains("_vcg_det = core.resize.Bob(_vcg_fields, filter=\"bicubic\", tff=True)"), "{s}");
+    // One request at a time is what "in order" means here.
+    assert!(s.contains(".frames(prefetch=1, backlog=0, close=True)"), "{s}");
+    // The borrowed function is put back whatever happens.
+    assert!(pos(&s, "haf.ChangeFPS = _vcg_take") < pos(&s, "finally:"));
+    assert!(pos(&s, "finally:") < pos(&s, "haf.ChangeFPS = _vcg_changefps"));
+    // And the picture comes from the QTGMC bob, by lookup.
+    assert!(s.contains("return _vcg_bob[_vcg_picks[n]] * (n + 1)"), "{s}");
+
+    let bff = script(&Config {
+        home_movie: true,
+        field_order: vcg_core::config::FieldOrder::Bff,
+        ..Config::default()
+    });
+    assert!(bff.contains("core.resize.Bob(_vcg_fields, filter=\"bicubic\", tff=False)"), "{bff}");
+}
+
+/// A projector does not run at its nameplate speed, and rebuilding an
+/// 18.66 fps reel at 18 throws away one real frame in 28.
+#[test]
+fn a_measured_projector_speed_is_what_the_film_is_rebuilt_at() {
+    use vcg_core::config::FilmRate;
+    use vcg_core::ffmpeg::output_frame_rate;
+    let config = Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps18,
+        home_movie_fps: Some(18.6583),
+        ..Config::default()
+    };
+    let s = script(&config);
+    assert!(s.contains("haf.srestore(_vcg_proxy, frate=18.66,"), "{s}");
+    assert!(s.contains("core.std.AssumeFPS(clip, fpsnum=1866, fpsden=100)"), "{s}");
+    assert_eq!(output_frame_rate(&config), "18.66");
+
+    // A hand-made answer of a different speed is taken at its word: the
+    // measurement belongs to 18, not to 16.
+    let by_hand = Config { home_movie_rate: FilmRate::Fps16, ..config.clone() };
+    assert!(script(&by_hand).contains("frate=16,"));
+    assert_eq!(output_frame_rate(&by_hand), "16");
+
+    // And a measurement means nothing to a tape that is not a home movie.
+    let video = Config { home_movie: false, ..config.clone() };
+    assert_eq!(output_frame_rate(&video), "60000/1001");
+
+    // A speed typed in by hand outranks the measurement, and is held to
+    // what a projector can do.
+    let typed = Config { home_movie_fps_override: Some(17.25), ..config.clone() };
+    assert!(script(&typed).contains("frate=17.25,"));
+    assert_eq!(output_frame_rate(&typed), "17.25");
+    let typo = Config { home_movie_fps_override: Some(180.0), ..config };
+    assert_eq!(typo.film_fps(), 26.0);
+}
+
+/// The same film frames on three clocks. sRestore is told the projector's
+/// speed in all of them — the clock is only how long each frame is shown.
+#[test]
+fn the_rebuilt_film_can_be_written_on_three_clocks() {
+    use vcg_core::config::{FilmOutput, FilmRate, VideoFormat};
+    use vcg_core::ffmpeg::output_frame_rate;
+    let base = Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps18,
+        home_movie_fps: Some(18.61),
+        ..Config::default()
+    };
+
+    let measured = script(&base);
+    assert!(measured.contains("AssumeFPS(clip, fpsnum=1861, fpsden=100)"), "{measured}");
+    assert!(!measured.contains("_vcg_hold"));
+    assert_eq!(output_frame_rate(&base), "18.61");
+
+    let video = Config { home_movie_output: FilmOutput::Video, ..base.clone() };
+    let s = script(&video);
+    assert!(s.contains("frate=18.61,"), "{s}");
+    assert!(s.contains("_vcg_hold = (30000 / 1001) / (1861 / 100)"), "{s}");
+    assert!(s.contains("AssumeFPS(clip, fpsnum=30000, fpsden=1001)"), "{s}");
+    // Held by rewriting the list, so the lookup is still the only step
+    // between the bob and the output.
+    assert!(pos(&s, "_vcg_hold") < pos(&s, "def _vcg_pick(n):"));
+    assert_eq!(output_frame_rate(&video), "30000/1001");
+    assert_eq!(video.film_stretch(), 1.0);
+
+    let pal = Config { format: VideoFormat::Pal, ..video };
+    assert!(script(&pal).contains("AssumeFPS(clip, fpsnum=25, fpsden=1)"));
+    assert_eq!(output_frame_rate(&pal), "25");
+
+    let conform = Config { home_movie_output: FilmOutput::Conform, ..base };
+    let s = script(&conform);
+    assert!(s.contains("frate=18.61,"), "{s}");
+    assert!(s.contains("AssumeFPS(clip, fpsnum=1800, fpsden=100)"), "{s}");
+    assert!(!s.contains("_vcg_hold"));
+    assert_eq!(output_frame_rate(&conform), "18");
+    assert!((conform.film_stretch() - 18.61 / 18.0).abs() < 1e-9);
 }
 
 #[test]

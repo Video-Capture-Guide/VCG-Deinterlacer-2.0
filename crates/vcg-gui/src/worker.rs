@@ -435,6 +435,9 @@ impl ExportJob {
         match &self.phase {
             None => "Starting up…".to_string(),
             Some(Phase::ExtractingAudio) => "Working on the sound…".to_string(),
+            Some(Phase::FindingFilmFrames) => {
+                "Finding the film frames — this reads the whole tape first…".to_string()
+            }
             Some(Phase::Encoding {
                 out_seconds,
                 total_seconds,

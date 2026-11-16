@@ -195,17 +195,42 @@ scan reads, every field is bobbed and its difference from the field before is
 measured; the picture changes come at a steady period — 3.33 fields for 18 fps
 on NTSC — and a periodogram over the change train finds that period however
 many quiet changes a slow scene hides. A coherent beat at a projector speed in
-a majority of windows outranks the pulldown reading. The repair is then
-`QTGMC` double-rate followed by `havsfunc.srestore(frate=18)`, which keeps one
-clean field per film frame and drops the repeats and the blends; the file
-comes out at the projector's rate. Measured on a Super 8 tape: 240 fields in,
-72 distinct frames out, no duplicate and no blend among them.
+a majority of windows outranks the pulldown reading. The repair is `QTGMC`
+double-rate, then havsfunc's sRestore to keep one clean field per film frame
+and drop the repeats and the blends.
 
-The speed is 18 unless the scan measured 16, and 16, 18 and 24 can all be set
-by hand on the Check video page. A Regular 8 reel the projector ran at 18 was
-recorded 12% fast on the tape; that is baked in, and the true pace is restored
-by slowing the finished file in an editor rather than by choosing 16 here,
-which would make sRestore drop one real frame in nine.
+sRestore is not simply called on the picture. It only works when it is given
+the fields strictly in order, and current VapourSynth no longer guarantees
+that — called directly it quietly degrades to plain decimation, dropping real
+frames and keeping blends. So its choices are made first: the tape is read
+once from start to end, in order, on a cheap bob of the captured fields, and
+the export then takes the chosen fields from the QTGMC output by lookup. That
+adds one read of the tape before the first frame appears ("Finding the film
+frames…").
+
+The film is rebuilt at the speed the projector actually ran at, which is
+rarely its nameplate speed: reels measured here ran at 18.6 to 19.0 against a
+nominal 18. Rebuilt at exactly 18, such a reel loses a real frame every second
+or two. Measured on 20 seconds of a Super 8 transfer running at 18.66: every
+one of 203 film frames kept, none repeated, no blends.
+
+The Check video page shows the measured speed and lets you type another. It
+also asks what frame rate to write the file at:
+
+- **The measured rate** (18.61 fps, say) — every film frame once, same length
+  as the tape, sound in step. The default.
+- **29.97 fps** (25 on PAL) — the same frames, each held for one or two video
+  frames. Same length, sound in step, and ready for a standard editing
+  timeline.
+- **The nominal rate** (exactly 18) — the film at the speed it was shot at.
+  The file runs a few percent longer or shorter than the tape and the sound is
+  stretched to match, so this is for reels with no sound worth keeping.
+
+The nominal speed is 18 unless the scan measured 16, and 16, 18 and 24 can all
+be set by hand. A Regular 8 reel the projector ran at 18 was recorded 12% fast
+on the tape; that is baked in, and the true pace is restored by slowing the
+finished file in an editor rather than by choosing 16 here, which would drop
+one real frame in nine.
 
 ## Optional corrections and enhancements
 

@@ -313,11 +313,13 @@ fn print_report(r: &Report, elapsed: std::time::Duration) {
             match c.rate {
                 Some(rate) => format!(
                     "home-movie projector rhythm at {:.1} fps in {} of {} window{} \
-                     -> bob and sRestore to {} fps (outranks the pulldown reading)",
+                     -> bob, then rebuild the film frames at {:.2} fps, nominally {} \
+                     (outranks the pulldown reading)",
                     c.fps,
                     c.film_windows,
                     c.windows,
                     if c.windows == 1 { "" } else { "s" },
+                    c.fps,
                     rate.fps(),
                 ),
                 None if c.film_windows > 0 => format!(

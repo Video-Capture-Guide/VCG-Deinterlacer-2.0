@@ -925,7 +925,36 @@ fn a_home_movie_is_set_in_every_mode_with_its_measured_speed() {
         assert_eq!(config.scan_type(), ScanType::HomeMovie, "{mode:?}");
         assert_eq!(config.home_movie_rate, FilmRate::Fps18, "{mode:?}");
         assert!(!config.ivtc_mode, "{mode:?}");
+        // The speed the film is rebuilt at is the one measured, not the
+        // nameplate: at 18 a reel that ran at 18.5 loses a frame in 37.
+        assert_eq!(config.home_movie_fps, Some(18.5), "{mode:?}");
+        assert_eq!(config.film_fps(), 18.5, "{mode:?}");
     }
+}
+
+#[test]
+fn the_measured_speed_is_this_tapes_and_no_other() {
+    // Carried in from another tape's settings file, then analysed on a tape
+    // that is ordinary video: the measurement goes, because it was never
+    // this tape's.
+    let mut config = Config { home_movie_fps: Some(18.9), ..Config::default() };
+    apply_report(&mut config, &video_report(), Mode::EnhanceAutomatically);
+    assert_eq!(config.home_movie_fps, None);
+
+    // A hand-made answer keeps its scan type but not somebody else's speed…
+    let mut config = Config {
+        home_movie: true,
+        home_movie_fps: Some(18.9),
+        ivtc_user_override: true,
+        ..Config::default()
+    };
+    apply_report(&mut config, &video_report(), Mode::EnhanceAutomatically);
+    assert_eq!(config.scan_type(), ScanType::HomeMovie);
+    assert_eq!(config.film_fps(), 18.0);
+
+    // …and does pick up this tape's own, when the scan measured one.
+    apply_report(&mut config, &home_movie_report(), Mode::EnhanceAutomatically);
+    assert_eq!(config.film_fps(), 18.5);
 }
 
 #[test]

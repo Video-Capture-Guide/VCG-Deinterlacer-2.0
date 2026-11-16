@@ -693,6 +693,11 @@ impl App {
         detected: Option<vcg_tools::apply::DetectedScan>,
     ) {
         self.config.set_scan_type(scan);
+        // A speed typed in by hand belonged to the nominal speed it was
+        // typed under; choosing another starts again from that one.
+        if self.config.home_movie_rate != rate {
+            self.config.home_movie_fps_override = None;
+        }
         self.config.home_movie_rate = rate;
         self.config.ivtc_user_override = match detected {
             Some(d) => scan != d.scan || (scan == ScanType::HomeMovie && d.rate != Some(rate)),
@@ -1329,8 +1334,12 @@ impl App {
         }
 
         if job.save_log {
+            // What was done, not what was asked for — the same correction
+            // the encoder makes to the note inside the file.
+            let mut applied = job.config.clone();
+            applied.fix_one_sided_audio &= o.had_audio;
             let text = vcg_core::provenance::log_text(vcg_core::provenance::LogEntry {
-                config: &job.config,
+                config: &applied,
                 version: VERSION,
                 source_name: &source_name,
                 output_name: &o.output.file_name().unwrap_or_default().to_string_lossy(),
@@ -2531,11 +2540,21 @@ fn findings_text(report: &Report) -> String {
             b.bleed_level, b.bleeding_score
         ));
     }
-    if let Some(t) = &report.telecine {
+    // What was found, not what was done about it — that is the "What was
+    // applied" line's job. This used to say "film, pulldown removed" whenever
+    // idet crossed its 3:2 bar, on tapes where the projector rhythm had
+    // outranked that reading and no pulldown was removed at all, and
+    // "interlaced" on others put through the identical repair.
+    if let Some(c) = report.cadence.as_ref().filter(|c| c.detected()) {
+        lines.push(format!(
+            "scan: home movie filmed off a projector — rhythm at {:.2} fps in {} of {} windows",
+            c.fps, c.film_windows, c.windows
+        ));
+    } else if let Some(t) = &report.telecine {
         lines.push(if t.progressive_source {
             "scan: progressive already".to_string()
         } else if t.pattern.is_some() {
-            "scan: film, pulldown removed".to_string()
+            "scan: film transfer, pulldown found".to_string()
         } else {
             format!(
                 "scan: interlaced, {} TFF / {} BFF frames measured",

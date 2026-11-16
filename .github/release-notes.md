@@ -1,3 +1,38 @@
+## New in 2.0.8
+
+**Exports of long captures could lose their sound, and now cannot.** Reading
+the sound out of a capture means reading the whole file, and that step had a
+45-second limit. On a large capture on a slow disk it ran out, and the export
+carried on and wrote a video with no sound track, reporting that the source
+had none. The limit is gone — the step runs until it finishes or you press
+Stop — and if the sound of a tape that has some cannot be read, the export
+now stops and says so instead of finishing silent. If you exported a long
+capture with an earlier version, check that it has its sound.
+
+**8 mm and Super 8 home movies: the frame rebuild now works as described.**
+The step that picks one clean frame per film frame was not making any choices:
+it needs the fields in order, VapourSynth no longer guarantees that, and the
+result was plain decimation — real film frames dropped, others shown twice,
+and blended frames kept. The choices are now made up front, in order, before
+the export starts ("Finding the film frames…"), which adds one read of the
+tape. On 20 seconds of a Super 8 transfer: 186 of 203 film frames kept with 9
+repeats and 7 blends before; 203 of 203 with none now.
+
+**Home movies are rebuilt at the speed the projector really ran at.**
+Projectors rarely turn at their marked speed — reels measured here ran at
+18.6 to 19.0 against a nominal 18 — and rebuilding at exactly 18 threw away a
+real frame every second or two. The scan's measurement is now used, shown on
+the Check video page, and can be typed over.
+
+**Choose the frame rate of a rebuilt home movie.** The measured rate (every
+film frame once — the default), 29.97 or 25 fps for a standard editing
+timeline, or the exact nominal rate, which plays the film at the speed it was
+shot at and stretches the sound to match. Files exported at the measured rate
+have an unusual frame rate such as 18.61 fps; that is intended.
+
+The export log's "scan:" line now says what was found on a home movie instead
+of "film, pulldown removed".
+
 ## New in 2.0.7
 
 **8 mm and Super 8 home movies are now recognised and rebuilt properly.**

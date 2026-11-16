@@ -739,6 +739,7 @@ fn live_line(job: &crate::worker::ExportJob) -> String {
     match &job.phase {
         None => "Starting up…".to_string(),
         Some(Phase::ExtractingAudio) => "Working on the sound…".to_string(),
+        Some(Phase::FindingFilmFrames) => "Finding the film frames…".to_string(),
         Some(Phase::Verifying) => "Checking the finished file…".to_string(),
         Some(Phase::Comparing) => "Making the before-and-after clip…".to_string(),
         Some(Phase::Encoding { out_seconds, total_seconds, fps, speed }) => {

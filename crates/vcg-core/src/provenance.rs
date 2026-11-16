@@ -37,10 +37,29 @@ pub fn summary(config: &Config, version: &str) -> String {
     parts.push(match config.field_order {
         FieldOrder::Progressive => "progressive source, not deinterlaced".to_string(),
         _ if config.ivtc_mode => "inverse telecine (pulldown removed)".to_string(),
-        _ if config.home_movie => format!(
-            "home-movie film transfer, QTGMC bob then sRestore to {} fps",
-            config.home_movie_rate.fps()
-        ),
+        _ if config.home_movie => {
+            use crate::config::FilmOutput;
+            let clock = match config.home_movie_output {
+                FilmOutput::Measured => String::new(),
+                FilmOutput::Video => format!(
+                    ", shown at {} fps with repeated frames",
+                    if config.format == VideoFormat::Pal { "25" } else { "29.97" }
+                ),
+                FilmOutput::Conform if (config.film_stretch() - 1.0).abs() < 0.0005 => {
+                    String::new()
+                }
+                FilmOutput::Conform => format!(
+                    ", conformed to {} fps ({:.1}% {}, sound stretched to match)",
+                    config.home_movie_rate.fps(),
+                    (config.film_stretch() - 1.0).abs() * 100.0,
+                    if config.film_stretch() >= 1.0 { "slower" } else { "faster" }
+                ),
+            };
+            format!(
+                "home-movie film transfer, QTGMC bob then film frames rebuilt with sRestore at {} fps{clock}",
+                config.film_fps_text()
+            )
+        }
         // The implementation is named, not just the settings. Two exports of
         // the same file with the same settings can differ by 16% in encoded
         // size depending on which QTGMC produced them — measured on a Hi8

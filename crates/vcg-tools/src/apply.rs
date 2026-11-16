@@ -242,6 +242,15 @@ fn apply_structural(config: &mut Config, report: &Report) {
     // right handling from the video standard, so the pattern itself does
     // not need carrying into the config. A home movie's projector speed
     // does: it is the one number the repair is built on.
+    //
+    // The measured speed is set either way. It is a fact about this tape,
+    // not a choice, so a hand-made answer does not erase it and a settings
+    // file from another tape must not carry its own across.
+    config.home_movie_fps = report
+        .cadence
+        .as_ref()
+        .filter(|c| c.detected() && c.fps > 0.0)
+        .map(|c| c.fps);
     if !config.ivtc_user_override
         && let Some(found) = detected_scan(report)
     {
@@ -338,6 +347,8 @@ pub fn restore_source_facts(config: &mut Config, report: &Report) {
         config.head_switching_rows,
     );
     apply_structural(config, report);
+    // A projector speed typed in by hand was typed in for another tape.
+    config.home_movie_fps_override = None;
     (
         config.crop_preset,
         config.crop_left,

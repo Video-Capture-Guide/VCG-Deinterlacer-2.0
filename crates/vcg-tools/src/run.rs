@@ -13,6 +13,7 @@
 
 use std::io::Read;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -123,7 +124,17 @@ fn collect(rx: &mpsc::Receiver<Vec<u8>>, timed_out: bool) -> Vec<u8> {
 
 /// Wait for `child`, killing it if `timeout` elapses.
 fn wait_with_deadline(child: &mut Child, timeout: Duration) -> (Option<i32>, bool) {
-    let deadline = Instant::now() + timeout;
+    wait_until(child, Some(Instant::now() + timeout), None)
+}
+
+/// Wait for `child`, killing it at `deadline` or when `stop` is set.
+///
+/// The second value is whether it was killed, for either reason.
+fn wait_until(
+    child: &mut Child,
+    deadline: Option<Instant>,
+    stop: Option<&AtomicBool>,
+) -> (Option<i32>, bool) {
     loop {
         match child.try_wait() {
             Ok(Some(status)) => return (status.code(), false),
@@ -131,7 +142,9 @@ fn wait_with_deadline(child: &mut Child, timeout: Duration) -> (Option<i32>, boo
             // Treat an unwaitable child as finished rather than spinning.
             Err(_) => return (None, false),
         }
-        if Instant::now() >= deadline {
+        if deadline.is_some_and(|d| Instant::now() >= d)
+            || stop.is_some_and(|s| s.load(Ordering::Relaxed))
+        {
             let _ = child.kill();
             let _ = child.wait();
             return (None, true);
@@ -168,6 +181,40 @@ pub fn run(mut cmd: Command, timeout: Duration) -> std::io::Result<Output> {
         stdout: String::from_utf8_lossy(&stdout).into_owned(),
         stderr: String::from_utf8_lossy(&stderr).into_owned(),
         timed_out,
+    })
+}
+
+/// Run a command for as long as it takes, stopping only when `stop` is set.
+///
+/// For work whose length depends on the file rather than on the tool: reading
+/// the sound out of a capture means reading the whole capture, and on a
+/// 6 GB AVI on a slow disk that took 113 seconds. Under the default deadline
+/// it was killed at 45, the export took the missing WAV to mean the tape had
+/// no sound, and five of six tapes in one job were delivered silent. A
+/// deadline is the right guard for a probe and the wrong one for a pass over
+/// the whole file — there the guard is the user's Stop button.
+///
+/// `timed_out` in the result means it was stopped.
+pub fn run_until_stopped(mut cmd: Command, stop: &AtomicBool) -> std::io::Result<Output> {
+    hide_console(&mut cmd);
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = cmd.spawn()?;
+    let out_rx = drain(child.stdout.take().expect("stdout is piped"));
+    let err_rx = drain(child.stderr.take().expect("stderr is piped"));
+
+    let (status, stopped) = wait_until(&mut child, None, Some(stop));
+
+    let stdout = collect(&out_rx, stopped);
+    let stderr = collect(&err_rx, stopped);
+
+    Ok(Output {
+        status,
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        timed_out: stopped,
     })
 }
 

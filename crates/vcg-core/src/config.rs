@@ -217,6 +217,11 @@ pub enum FilmRate {
     Fps24,
 }
 
+/// The range a hand-typed projector speed is held to: slower than the
+/// slowest silent camera and faster than sound speed are both a typo.
+pub const FILM_FPS_MIN: f64 = 12.0;
+pub const FILM_FPS_MAX: f64 = 26.0;
+
 impl FilmRate {
     pub const ALL: [FilmRate; 3] = [FilmRate::Fps16, FilmRate::Fps18, FilmRate::Fps24];
 
@@ -248,6 +253,29 @@ impl FilmRate {
             Self::Fps24 => "24 fps — sound film",
         }
     }
+}
+
+/// What frame rate a rebuilt home movie is written at.
+///
+/// The film frames are the same in all three; what differs is the clock the
+/// file is given, and that is a question about what the file is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FilmOutput {
+    /// One frame per film frame at the speed the projector ran at — 18.61
+    /// fps, say. Nothing repeated, same running time as the tape, sound in
+    /// step. The archival answer, and the default.
+    #[default]
+    Measured,
+    /// The same frames at the tape's own video rate (29.97 or 25), each
+    /// shown for one or two video frames. Same running time, sound in step,
+    /// and a rate every editor's timeline already has.
+    Video,
+    /// The same frames at the projector's nominal speed — exactly 18. The
+    /// picture then runs at the speed the film was shot at rather than the
+    /// speed the projector happened to turn at, so the running time changes
+    /// by a few percent and the sound is stretched to match.
+    Conform,
 }
 
 /// What the deinterlacer is told the fields are.
@@ -443,6 +471,22 @@ pub struct Config {
     pub home_movie: bool,
     /// The projector's speed, for the home-movie path.
     pub home_movie_rate: FilmRate,
+    /// The projector's speed as measured off this tape, when it was.
+    ///
+    /// A projector's motor does not run at its nameplate speed: three tapes
+    /// of one job measured 18.6, 18.8 and 19.0 against a nominal 18. Rebuilt
+    /// at 18, a reel that ran at 18.66 has 18 places a second for 18.66
+    /// frames, and one real frame in 28 is thrown away — a hitch every
+    /// second and a half. `film_fps` is what the repair is built on;
+    /// `home_movie_rate` stays as the name of the speed and as the answer
+    /// when nothing was measured.
+    pub home_movie_fps: Option<f64>,
+    /// The projector's speed as typed in by hand, which outranks both the
+    /// measurement and the nameplate. For the tape the scan mis-measured, or
+    /// one whose owner timed the projector.
+    pub home_movie_fps_override: Option<f64>,
+    /// The frame rate the rebuilt film is written at.
+    pub home_movie_output: FilmOutput,
     /// Set when the user answered the scan-type question by hand.
     ///
     /// Telecine detection is a measurement with a confidence attached, and on
@@ -580,6 +624,9 @@ impl Default for Config {
             ivtc_mode: false,
             home_movie: false,
             home_movie_rate: FilmRate::Fps18,
+            home_movie_fps: None,
+            home_movie_fps_override: None,
+            home_movie_output: FilmOutput::Measured,
             ivtc_user_override: false,
 
             trim_ranges: Vec::new(),
@@ -639,6 +686,62 @@ impl Config {
             ScanType::HomeMovie
         } else {
             ScanType::Video
+        }
+    }
+
+    /// The frame rate a home movie is rebuilt at, to a hundredth.
+    ///
+    /// The measured speed when there is one and it is the speed that was
+    /// chosen — a measurement of 18.66 belongs to "18", not to a user who
+    /// has answered "16" by hand, and that answer is then taken at its word.
+    ///
+    /// A speed typed in by hand outranks both.
+    pub fn film_fps(&self) -> f64 {
+        if let Some(f) = self.home_movie_fps_override {
+            return (f.clamp(FILM_FPS_MIN, FILM_FPS_MAX) * 100.0).round() / 100.0;
+        }
+        match self.home_movie_fps {
+            Some(f) if FilmRate::nearest(f) == Some(self.home_movie_rate) => {
+                (f * 100.0).round() / 100.0
+            }
+            _ => self.home_movie_rate.fps() as f64,
+        }
+    }
+
+    /// Whether this export rebuilds a home movie at all. Inverse telecine
+    /// wins if a settings file carries both flags, as in `scan_type`.
+    pub fn rebuilds_film(&self) -> bool {
+        self.home_movie && !self.ivtc_mode && self.field_order != FieldOrder::Progressive
+    }
+
+    /// How much longer the finished file runs than the tape: 1.0 unless the
+    /// film is being conformed to its nominal speed, where a reel projected
+    /// at 18.61 and written at 18 runs 18.61/18 as long.
+    ///
+    /// Everything that compares the output's clock with the source's — the
+    /// expected running time, the sound, the before-and-after clip — has to
+    /// go through this, or a conformed export is "3% too long" and failed.
+    pub fn film_stretch(&self) -> f64 {
+        if self.rebuilds_film() && self.home_movie_output == FilmOutput::Conform {
+            self.film_fps() / self.home_movie_rate.fps() as f64
+        } else {
+            1.0
+        }
+    }
+
+    /// `film_fps` as hundredths over a hundred, for a rate that has to be
+    /// stated exactly: (1866, 100) for 18.66, (1800, 100) for 18.
+    pub fn film_fps_ratio(&self) -> (u32, u32) {
+        ((self.film_fps() * 100.0).round() as u32, 100)
+    }
+
+    /// `film_fps` as text: "18" for a whole number, "18.66" otherwise.
+    pub fn film_fps_text(&self) -> String {
+        let f = self.film_fps();
+        if (f - f.round()).abs() < 0.005 {
+            format!("{}", f.round() as u32)
+        } else {
+            format!("{f:.2}")
         }
     }
 

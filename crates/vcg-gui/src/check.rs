@@ -477,10 +477,10 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) -> bool {
             }
             Some(ScanType::HomeMovie) => pill(
                 ui,
-                &format!(
-                    "Home-movie rhythm found ({} fps)",
-                    found.and_then(|d| d.rate).unwrap_or(FilmRate::Fps18).fps()
-                ),
+                &match report.cadence.as_ref().filter(|c| c.detected()) {
+                    Some(c) => format!("Home-movie rhythm found ({:.2} fps)", c.fps),
+                    None => "Home-movie rhythm found".to_string(),
+                },
             ),
             Some(ScanType::Video) => pill(ui, "No pulldown found"),
             None => {}
@@ -591,6 +591,10 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) -> bool {
                             )
                             .size(theme::FONT_SMALL)
                             .color(theme::muted()),);
+                    ui.add_space(12.0);
+                    exact_speed(ui, app);
+                    ui.add_space(14.0);
+                    film_output_choice(ui, app, pal);
                     ui.add_space(10.0);
                 }
                 // Frame rate is a deinterlacing control, so it sits inside
@@ -778,6 +782,167 @@ fn frame_rate_choice(ui: &mut egui::Ui, app: &mut App) {
             ))
             .size(theme::FONT_SMALL)
             .color(theme::muted()),);
+}
+
+/// The projector's real speed, to a hundredth, and where the number came from.
+///
+/// A projector does not turn at its nameplate speed — the tapes this was
+/// built on ran at 18.6, 18.8 and 19.0 against a nominal 18 — and the film
+/// is rebuilt at the real one, because at 18 a reel that ran at 18.66 loses
+/// a frame in 28. The scan measures it; the box is for the tape it measured
+/// wrongly, or the owner who knows better.
+fn exact_speed(ui: &mut egui::Ui, app: &mut App) {
+    use vcg_core::config::{FILM_FPS_MAX, FILM_FPS_MIN};
+
+    ui.label(
+        RichText::new("Exact speed")
+            .size(theme::FONT_BODY)
+            .color(theme::text()),
+    );
+    ui.add_space(6.0);
+    let by_hand = app.config.home_movie_fps_override.is_some();
+    // What the film would be rebuilt at with nothing typed in.
+    let automatic = {
+        let mut c = app.config.clone();
+        c.home_movie_fps_override = None;
+        c.film_fps()
+    };
+    let measured = app
+        .config
+        .home_movie_fps
+        .is_some_and(|f| FilmRate::nearest(f) == Some(app.config.home_movie_rate));
+
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 10.0;
+        let mut fps = app.config.film_fps();
+        let changed = ui
+            .add(
+                egui::DragValue::new(&mut fps)
+                    .speed(0.01)
+                    .range(FILM_FPS_MIN..=FILM_FPS_MAX)
+                    .fixed_decimals(2)
+                    .suffix(" fps")
+                    .update_while_editing(false),
+            )
+            .changed();
+        if changed {
+            // Typing the automatic value back in is not an override.
+            app.config.home_movie_fps_override =
+                ((fps - automatic).abs() >= 0.005).then_some(fps);
+        }
+        ui.label(
+            RichText::new(match (by_hand, measured) {
+                (true, _) => "set by hand".to_string(),
+                (false, true) => "measured from this tape".to_string(),
+                (false, false) => "the nominal speed — nothing was measured at it".to_string(),
+            })
+            .size(theme::FONT_SMALL)
+            .color(theme::faint()),
+        );
+        if by_hand
+            && theme::link(
+                ui,
+                &if measured {
+                    format!("Use the measured {automatic:.2}")
+                } else {
+                    format!("Use {automatic:.0}")
+                },
+            )
+            .clicked()
+        {
+            app.config.home_movie_fps_override = None;
+        }
+    });
+    ui.add_space(6.0);
+    theme::paragraph(
+        ui,
+        RichText::new(
+            "Projectors rarely run at exactly their marked speed. The film is rebuilt at the \
+             speed this one actually ran at, so that no film frame is dropped or shown twice.",
+        )
+        .size(theme::FONT_SMALL)
+        .color(theme::muted()),
+    );
+}
+
+/// What frame rate the rebuilt film is written at.
+///
+/// Three clocks for the same frames. The measured rate is the faithful one
+/// and an odd number; the tape's video rate is what an editing timeline
+/// already has; the nominal rate plays the film at the speed it was shot at
+/// and is the only one that changes the running time, which is why it is
+/// the only one with a warning.
+fn film_output_choice(ui: &mut egui::Ui, app: &mut App, pal: bool) {
+    use vcg_core::config::FilmOutput;
+
+    let film = app.config.film_fps_text();
+    let nominal = app.config.home_movie_rate.fps();
+    let video = if pal { "25" } else { "29.97" };
+    // Only offered when it would do something.
+    let off_nominal = (app.config.film_fps() - nominal as f64).abs() >= 0.005;
+    if !off_nominal && app.config.home_movie_output == FilmOutput::Conform {
+        app.config.home_movie_output = FilmOutput::Measured;
+    }
+    let current = app.config.home_movie_output;
+
+    ui.label(
+        RichText::new("Frame rate of the finished file")
+            .size(theme::FONT_BODY)
+            .color(theme::text()),
+    );
+    ui.add_space(6.0);
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        if theme::chip_button(
+            ui,
+            &format!("{film} fps (Recommended)"),
+            current == FilmOutput::Measured,
+        ) {
+            app.config.home_movie_output = FilmOutput::Measured;
+        }
+        if theme::chip_button(ui, &format!("{video} fps"), current == FilmOutput::Video) {
+            app.config.home_movie_output = FilmOutput::Video;
+        }
+        if off_nominal
+            && theme::chip_button(
+                ui,
+                &format!("{nominal} fps — true speed"),
+                current == FilmOutput::Conform,
+            )
+        {
+            app.config.home_movie_output = FilmOutput::Conform;
+        }
+    });
+    ui.add_space(8.0);
+    let stretch = app.config.film_stretch();
+    let text = match current {
+        FilmOutput::Measured => format!(
+            "Every film frame once, at the speed the projector ran. Same length as the tape, \
+             with the sound in step. {film} is an unusual rate; editors accept it, but a \
+             timeline will usually be set to something else."
+        ),
+        FilmOutput::Video => format!(
+            "The same film frames, each held for one or two video frames to fill {video} fps. \
+             Same length as the tape, with the sound in step, and ready for a standard \
+             editing timeline. The file is larger."
+        ),
+        FilmOutput::Conform => format!(
+            "The same film frames at exactly {nominal} fps, the speed the film was shot at. \
+             The picture runs {:.1}% {} than the tape, so the finished file is {} and the \
+             sound is stretched to match. Choose this only if the tape has no sound worth \
+             keeping, or you are happy for it to be {}.",
+            (stretch - 1.0).abs() * 100.0,
+            if stretch >= 1.0 { "slower" } else { "faster" },
+            if stretch >= 1.0 { "longer" } else { "shorter" },
+            if stretch >= 1.0 { "slowed" } else { "sped up" },
+        ),
+    };
+    theme::paragraph(
+        ui,
+        RichText::new(text).size(theme::FONT_SMALL).color(
+            if current == FilmOutput::Conform { theme::text() } else { theme::muted() },
+        ),
+    );
 }
 
 /// A gray pill for something that is stated rather than chosen.

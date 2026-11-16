@@ -400,6 +400,13 @@ fn an_old_settings_file_without_the_home_movie_fields_still_loads() {
     assert!(c.ivtc_mode);
     assert!(!c.home_movie);
     assert_eq!(c.home_movie_rate, FilmRate::Fps18);
+    // Nor anything about the measured speed or the output clock, which came
+    // later still: the film is rebuilt at the nominal speed, as it was then.
+    let c: Config = serde_json::from_str(r#"{"home_movie": true}"#).expect("loads");
+    assert_eq!(c.home_movie_fps, None);
+    assert_eq!(c.home_movie_output, vcg_core::config::FilmOutput::Measured);
+    assert_eq!(c.film_fps(), 18.0);
+    assert_eq!(output_frame_rate(&c), "18");
     // And the fields round-trip.
     let c = Config { home_movie: true, home_movie_rate: FilmRate::Fps16, ..Config::default() };
     let json = serde_json::to_string(&c).expect("saves");

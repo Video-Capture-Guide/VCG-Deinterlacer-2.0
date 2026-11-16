@@ -336,10 +336,26 @@ fn plan_lines(app: &App) -> Vec<String> {
     let by_hand = if c.ivtc_user_override { " (set by hand)" } else { "" };
     lines.push(match c.scan_type() {
         ScanType::Telecine => format!("Put the original film frames back together{by_hand}"),
-        ScanType::HomeMovie => format!(
-            "Rebuild the home-movie frames at the projector's {} fps{by_hand}",
-            c.home_movie_rate.fps()
-        ),
+        ScanType::HomeMovie => {
+            use vcg_core::config::FilmOutput;
+            let clock = match c.home_movie_output {
+                FilmOutput::Measured => String::new(),
+                FilmOutput::Video => format!(
+                    ", written at {} fps",
+                    if c.format == vcg_core::config::VideoFormat::Pal { "25" } else { "29.97" }
+                ),
+                FilmOutput::Conform => format!(
+                    ", written at {} fps — {:.1}% {} than the tape",
+                    c.home_movie_rate.fps(),
+                    (c.film_stretch() - 1.0).abs() * 100.0,
+                    if c.film_stretch() >= 1.0 { "slower" } else { "faster" }
+                ),
+            };
+            format!(
+                "Rebuild the home-movie frames at the projector's {} fps{clock}{by_hand}",
+                c.film_fps_text()
+            )
+        }
         ScanType::Video => format!("Remove the interlacing with QTGMC{by_hand}"),
     });
 
