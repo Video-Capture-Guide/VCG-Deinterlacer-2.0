@@ -1474,6 +1474,16 @@ fn denoise(s: &mut Script, config: &Config) {
 /// brightness is matched — the picture at a sixteenth of its size — so a
 /// speck, which is small, is still a difference.
 ///
+/// Two more guards came from the oldest sample reel, a brick wall in a slow
+/// pan. Alternate film frames there come from opposite video fields, so the
+/// mortar lines sit half a line apart from one frame to the next, and at
+/// Strong the filter rewrote 7-11% of every other frame — the bricks, not
+/// dust. Differences too thin to be dust are now ignored (a one-pixel
+/// shrink and regrow of the mask), which took the typical frame from 2.3%
+/// replaced to 0.4% with the specks on the other reel still going. And a
+/// frame that would still need more than 5% replaced is passed through as
+/// it is: that is a frame unlike its neighbours, not a dusty one.
+///
 /// What it cannot touch is dirt that stays put on the screen — a hair in the
 /// projector's gate — because that is in every frame, in the same place,
 /// and by this test it is picture.
@@ -1536,8 +1546,19 @@ fn film_dirt(s: &mut Script, config: &Config) {
     s.push("    y_src = core.std.ShufflePlanes(src, planes=0, colorfamily=vs.GRAY)");
     s.push("    y_clean = core.std.ShufflePlanes(clean, planes=0, colorfamily=vs.GRAY)");
     s.push("    speck = core.std.Expr([y_src, y_clean], f\"x y - abs {limit} > 65535 0 ?\")");
+    s.push("    # Dust is a blob. A difference one or two pixels thin is fine detail that");
+    s.push("    # moved by half a line between frames — brick mortar, a fence — and is");
+    s.push("    # left alone: shrink the mask by a pixel, then grow back what survived.");
+    s.push("    speck = core.std.Maximum(core.std.Minimum(speck))");
+    s.push("    share = core.std.PlaneStats(speck)");
     s.push("    speck = core.std.Convolution(core.std.Maximum(speck), matrix=[1] * 9)");
-    s.push("    return core.std.MaskedMerge(src, clean, speck, first_plane=True)");
+    s.push("    fixed = core.std.MaskedMerge(src, clean, speck, first_plane=True)");
+    s.push("    # A frame that would need more than 5% replaced is not dusty, it is odd —");
+    s.push("    # caught mid-pull-down, or unlike its neighbours some other way — and is");
+    s.push("    # passed through untouched rather than rebuilt from them.");
+    s.push("    def keep_odd(n, f):");
+    s.push("        return src if f.props[\"PlaneStatsAverage\"] > 0.05 else fixed");
+    s.push("    return core.std.FrameEval(fixed, keep_odd, prop_src=share)");
     s.gap();
     s.push(format!("clip = _vcg_film_dirt(clip, limit={limit})"));
     s.gap();

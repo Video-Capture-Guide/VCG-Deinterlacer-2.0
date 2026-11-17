@@ -1509,6 +1509,16 @@ fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
     // The median is consulted, not substituted: the frame is merged with it
     // through a mask of where it moved the picture a long way.
     assert!(s.contains("core.std.MaskedMerge(src, clean, speck, first_plane=True)"), "{s}");
+    // Differences too thin to be dust are dropped before the mask grows:
+    // without it, mortar lines half a line apart were rewritten as dirt.
+    assert!(
+        pos(&s, "speck = core.std.Maximum(core.std.Minimum(speck))")
+            < pos(&s, "speck = core.std.Convolution(core.std.Maximum(speck)"),
+        "{s}"
+    );
+    // And a frame that would need more than 5% replaced is left alone.
+    assert!(s.contains("return src if f.props[\"PlaneStatsAverage\"] > 0.05 else fixed"), "{s}");
+    assert!(s.contains("return core.std.FrameEval(fixed, keep_odd, prop_src=share)"), "{s}");
     // The neighbours are matched to this frame's brightness before the
     // median: film flickers, and an unmatched dark frame got pale patches
     // of its neighbours pasted over a wall.
