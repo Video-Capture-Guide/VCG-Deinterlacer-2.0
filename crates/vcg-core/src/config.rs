@@ -125,6 +125,51 @@ pub enum NoiseLevel {
     Heavy,
 }
 
+/// How readily a mark on a rebuilt film frame is taken for dirt.
+///
+/// Only a home movie has this: it works by comparing each film frame with
+/// the one before and the one after, and a speck of dust is on one frame of
+/// film and not on its neighbours. Tape has no such thing — a dropout is a
+/// different fault with a different repair.
+///
+/// The three strengths are one number, the smallest change in brightness
+/// (on the 0-255 scale) that counts as a speck. Measured on a dusty reel of
+/// a Super 8 transfer, as the share of each frame that gets repaired: 0.09%
+/// at Light, 0.21% at Normal, 0.73% at Strong. Below Strong the threshold
+/// reaches into the grain — at 6 it was 2% of the picture, and 11% of the
+/// worst frame — which is denoising by another name, and badly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FilmDirt {
+    #[default]
+    Off,
+    Light,
+    Normal,
+    Strong,
+}
+
+impl FilmDirt {
+    /// The brightness change that counts as a speck, on the 0-255 scale.
+    pub fn threshold(self) -> Option<u32> {
+        match self {
+            Self::Off => None,
+            Self::Light => Some(16),
+            Self::Normal => Some(12),
+            Self::Strong => Some(8),
+        }
+    }
+
+    /// As the log and the queue name it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Light => "light",
+            Self::Normal => "normal",
+            Self::Strong => "strong",
+        }
+    }
+}
+
 /// Halo-removal strength.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -510,6 +555,9 @@ pub struct Config {
     /// Horizontal chroma shift in pixels, to correct Y/C delay.
     pub yc_delay: i32,
     pub noise_level: NoiseLevel,
+    /// Dust and dirt removal on the rebuilt film frames. Does nothing unless
+    /// the export rebuilds a home movie — see `removes_film_dirt`.
+    pub film_dirt: FilmDirt,
     pub dehalo_mode: DehaloMode,
     /// Legacy chroma-shift flag, kept for back-compat with old settings files.
     pub chroma_shift: bool,
@@ -633,6 +681,7 @@ impl Default for Config {
 
             yc_delay: 0,
             noise_level: NoiseLevel::None,
+            film_dirt: FilmDirt::Off,
             dehalo_mode: DehaloMode::None,
             chroma_shift: false,
             dropout_removal: false,
@@ -712,6 +761,17 @@ impl Config {
     /// wins if a settings file carries both flags, as in `scan_type`.
     pub fn rebuilds_film(&self) -> bool {
         self.home_movie && !self.ivtc_mode && self.field_order != FieldOrder::Progressive
+    }
+
+    /// Whether this export takes dust off the film.
+    ///
+    /// The setting alone does not say: it survives in a settings file loaded
+    /// onto a tape that is not a home movie, and there it must do nothing —
+    /// on video the frames either side are different moments, not the same
+    /// picture with different dirt on it. Everything that acts on or reports
+    /// the setting asks this instead of reading the field.
+    pub fn removes_film_dirt(&self) -> bool {
+        self.rebuilds_film() && self.film_dirt != FilmDirt::Off
     }
 
     /// How much longer the finished file runs than the tape: 1.0 unless the
@@ -796,6 +856,7 @@ impl Config {
 
         // Enhancement proper.
         self.noise_level = d.noise_level;
+        self.film_dirt = d.film_dirt;
         self.dehalo_mode = d.dehalo_mode;
         self.chroma_shift = d.chroma_shift;
         self.color_correction = d.color_correction;
@@ -820,6 +881,7 @@ impl Config {
             && cleared.levels_adjustment == self.levels_adjustment
             && cleared.dropout_removal == self.dropout_removal
             && cleared.noise_level == self.noise_level
+            && cleared.film_dirt == self.film_dirt
             && cleared.dehalo_mode == self.dehalo_mode
             && cleared.chroma_shift == self.chroma_shift
             && cleared.color_correction == self.color_correction

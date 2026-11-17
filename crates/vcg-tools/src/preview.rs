@@ -24,7 +24,8 @@ use std::time::Duration;
 use vcg_core::analysis::probe::VideoInfo;
 use vcg_core::config::{Config, VideoFormat};
 use vcg_core::vpy::{
-    generate_preview_vpy, generate_stage_preview_vpy, DepsPaths, PreviewStage,
+    generate_film_stage_preview_vpy, generate_preview_vpy, generate_stage_preview_vpy, DepsPaths,
+    PreviewStage,
 };
 
 use crate::paths::ToolPaths;
@@ -772,7 +773,29 @@ pub fn stage_frame(request: StageRequest<'_>) -> Result<Image, String> {
     let mut config = config.clone();
     config.input_path = file.display().to_string();
 
-    let script = generate_stage_preview_vpy(&config, deps, stage, apply);
+    let source_frame = (at * info.fps).round().max(0.0) as u64;
+
+    // A home movie is previewed on a rebuilt film frame, for every stage.
+    //
+    // Only the stages that look at neighbouring frames strictly need it — on
+    // the bobbed fields those neighbours are the same film frame again, so a
+    // temporal filter is judged on a picture the export never gives it. But
+    // the untouched half is one image shared by every page, and that only
+    // stays true if every page asks for the same kind of frame.
+    //
+    // The film script puts out the one frame it was asked about as frame 0.
+    let film = config.rebuilds_film();
+    let (script, frame) = if film {
+        (
+            generate_film_stage_preview_vpy(&config, deps, stage, apply, source_frame),
+            0,
+        )
+    } else {
+        (
+            generate_stage_preview_vpy(&config, deps, stage, apply),
+            source_frame,
+        )
+    };
     let dir = std::env::temp_dir().join("vcg-preview");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let script_path = dir.join(format!(
@@ -783,7 +806,6 @@ pub fn stage_frame(request: StageRequest<'_>) -> Result<Image, String> {
     ));
     std::fs::write(&script_path, script.as_bytes()).map_err(|e| e.to_string())?;
 
-    let frame = (at * info.fps).round().max(0.0) as u64;
     let expected = out_w * out_h * 3;
 
     let mut producer = crate::run::command(&vspipe);

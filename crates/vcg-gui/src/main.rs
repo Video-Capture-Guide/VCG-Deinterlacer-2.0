@@ -852,7 +852,26 @@ impl App {
         } else if mode == Mode::JustDeinterlace {
             self.config.clear_enhancements();
         }
-        if !self.step.visible_in(mode) {
+        self.leave_a_step_that_is_gone();
+    }
+
+    /// Which steps exist right now: the mode's, and the film-only ones if
+    /// this tape is a home movie.
+    fn walk(&self) -> nav::Walk {
+        nav::Walk {
+            mode: self.mode,
+            film: self.config.rebuilds_film(),
+        }
+    }
+
+    /// Step back to Check video if the page being shown no longer exists.
+    ///
+    /// A mode change can remove the page under the user, and so can anything
+    /// that changes what kind of tape this is — another file, a settings
+    /// file, the scan-type answer. Left alone, the app would sit on a page
+    /// the sidebar no longer lists, with a step counter reading "1 of 15".
+    fn leave_a_step_that_is_gone(&mut self) {
+        if self.step != Step::Welcome && !self.step.visible_in(self.walk()) {
             self.step = Step::CheckVideo;
         }
     }
@@ -2210,6 +2229,10 @@ impl eframe::App for App {
 
         let has_file = self.file.is_some();
 
+        // Before anything is drawn, so the sidebar, the page and the step
+        // counter all agree about where the user is.
+        self.leave_a_step_that_is_gone();
+
         // The release check runs on its own thread; pick up its answer and
         // keep the frame loop alive while it is still out.
         self.poll_update_check();
@@ -2236,7 +2259,7 @@ impl eframe::App for App {
                     self.step,
                     &self.visited,
                     reachable,
-                    self.mode,
+                    self.walk(),
                     &badge,
                     on_queue,
                 ) {
@@ -2400,7 +2423,7 @@ impl App {
     fn footer(&mut self, ui: &mut egui::Ui) -> Option<Step> {
         let mut go = None;
         let step = self.step;
-        let mode = self.mode;
+        let walk = self.walk();
 
         // Greyed while the running job is on screen, for the same reason the
         // sidebar is: going back to change a setting that cannot reach the
@@ -2408,7 +2431,7 @@ impl App {
         let locked = self.wizard_locked();
 
         ui.horizontal(|ui| {
-            if let Some(prev) = step.prev_in(mode) {
+            if let Some(prev) = step.prev_in(walk) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 7.0;
                     let response = ui.add_enabled(!locked, back_button());
@@ -2449,7 +2472,7 @@ impl App {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if let Some(next) = step.next_in(mode) {
+                if let Some(next) = step.next_in(walk) {
                     let label = format!("Next: {}    ", next.title());
                     let enabled = self.can_advance();
                     let response = theme::primary(ui, &label, enabled);
@@ -2477,7 +2500,7 @@ impl App {
                     }
                 }
                 ui.add_space(10.0);
-                let counter = step.counter_label(mode);
+                let counter = step.counter_label(walk);
                 if !counter.is_empty() {
                     ui.label(
                         egui::RichText::new(counter)

@@ -1400,9 +1400,20 @@ fn the_rebuilt_film_can_be_written_on_three_clocks() {
     assert!(s.contains("frate=18.61,"), "{s}");
     assert!(s.contains("_vcg_hold = (30000 / 1001) / (1861 / 100)"), "{s}");
     assert!(s.contains("AssumeFPS(clip, fpsnum=30000, fpsden=1001)"), "{s}");
-    // Held by rewriting the list, so the lookup is still the only step
-    // between the bob and the output.
-    assert!(pos(&s, "_vcg_hold") < pos(&s, "def _vcg_pick(n):"));
+    // Held at the very end, after the film frames are picked and after
+    // everything that works on them: a frame held any earlier is two frames
+    // to every filter that follows.
+    assert!(pos(&s, "def _vcg_pick(n):") < pos(&s, "_vcg_hold"));
+    assert!(pos(&s, "_vcg_hold") < pos(&s, "# Tag colorspace"));
+    // The film itself is still rebuilt at the projector's speed first.
+    assert!(
+        pos(&s, "AssumeFPS(clip, fpsnum=1861, fpsden=100)")
+            < pos(&s, "AssumeFPS(clip, fpsnum=30000, fpsden=1001)")
+    );
+    // Grain is the visible case: laid on the film frames, then held, so a
+    // frame shown twice carries the same grain both times.
+    let grainy = script(&Config { grain_strength: 2.0, ..video.clone() });
+    assert!(pos(&grainy, "core.grain.Add(") < pos(&grainy, "_vcg_hold"), "{grainy}");
     assert_eq!(output_frame_rate(&video), "30000/1001");
     assert_eq!(video.film_stretch(), 1.0);
 
@@ -1414,6 +1425,7 @@ fn the_rebuilt_film_can_be_written_on_three_clocks() {
     let s = script(&conform);
     assert!(s.contains("frate=18.61,"), "{s}");
     assert!(s.contains("AssumeFPS(clip, fpsnum=1800, fpsden=100)"), "{s}");
+    assert!(pos(&s, "def _vcg_pick(n):") < pos(&s, "AssumeFPS(clip, fpsnum=1800, fpsden=100)"));
     assert!(!s.contains("_vcg_hold"));
     assert_eq!(output_frame_rate(&conform), "18");
     assert!((conform.film_stretch() - 18.61 / 18.0).abs() < 1e-9);
@@ -1450,4 +1462,134 @@ fn the_stage_preview_leaves_srestore_out_so_frame_numbers_still_match() {
     let s = generate_stage_preview_vpy(&config, &deps(), PreviewStage::Noise, true);
     assert!(!s.contains("srestore"), "{s}");
     assert!(s.contains("haf.QTGMC("));
+}
+
+/// Dust is taken off the rebuilt film frames, and nowhere else.
+#[test]
+fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
+    use vcg_core::config::{FilmDirt, FilmOutput, NoiseLevel};
+    let film = Config { home_movie: true, ..Config::default() };
+
+    // Off unless asked for.
+    assert!(!script(&film).contains("_vcg_film_dirt"));
+
+    // The three strengths are one number: the change that counts as a speck,
+    // in 8-bit levels, scaled to the 16-bit clip.
+    for (strength, limit) in [
+        (FilmDirt::Light, 16 * 256),
+        (FilmDirt::Normal, 12 * 256),
+        (FilmDirt::Strong, 8 * 256),
+    ] {
+        let s = script(&Config { film_dirt: strength, ..film.clone() });
+        assert!(
+            s.contains(&format!("clip = _vcg_film_dirt(clip, limit={limit})")),
+            "{strength:?}: {s}"
+        );
+    }
+
+    let s = script(&Config {
+        film_dirt: FilmDirt::Normal,
+        noise_level: NoiseLevel::Moderate,
+        home_movie_output: FilmOutput::Video,
+        ..film.clone()
+    });
+    // On film frames: after they are picked, before any is shown twice.
+    assert!(pos(&s, "def _vcg_pick(n):") < pos(&s, "clip = _vcg_film_dirt("));
+    assert!(pos(&s, "clip = _vcg_film_dirt(") < pos(&s, "_vcg_hold"));
+    // Before the denoiser, which would smear a speck into its neighbours.
+    assert!(pos(&s, "clip = _vcg_film_dirt(") < pos(&s, "bm3d"));
+    // One frame either side and no further: two erased a mark that was part
+    // of the scene.
+    assert!(s.contains("delta=1"), "{s}");
+    assert!(!s.contains("delta=2"), "{s}");
+    // The median is consulted, not substituted: the frame is merged with it
+    // through a mask of where it moved the picture a long way.
+    assert!(s.contains("core.std.MaskedMerge(src, clean, speck, first_plane=True)"), "{s}");
+    // Nothing in it is allowed to fail quietly.
+    let body = &s[pos(&s, "def _vcg_film_dirt(")..pos(&s, "clip = _vcg_film_dirt(")];
+    assert!(!body.contains("try:"), "{body}");
+    assert!(!body.contains("except"), "{body}");
+
+    // A setting carried onto a tape that is not a home movie does nothing:
+    // on video the frames either side are different moments.
+    for not_film in [
+        Config { film_dirt: FilmDirt::Strong, ..Config::default() },
+        Config { film_dirt: FilmDirt::Strong, ivtc_mode: true, home_movie: true, ..Config::default() },
+        Config {
+            film_dirt: FilmDirt::Strong,
+            home_movie: true,
+            field_order: vcg_core::config::FieldOrder::Progressive,
+            ..Config::default()
+        },
+    ] {
+        assert!(!not_film.removes_film_dirt());
+        assert!(!script(&not_film).contains("_vcg_film_dirt"));
+    }
+}
+
+/// The Film dirt page's preview has to be the film preview: among bobbed
+/// fields a speck is in three or four frames running and is kept as picture,
+/// so the ordinary preview would show the filter doing nothing at all.
+#[test]
+fn film_dirt_is_previewed_on_film_frames_or_not_at_all() {
+    use vcg_core::config::FilmDirt;
+    use vcg_core::vpy::{generate_film_stage_preview_vpy, generate_stage_preview_vpy, PreviewStage};
+    let config = Config { home_movie: true, film_dirt: FilmDirt::Normal, ..Config::default() };
+
+    let s = generate_film_stage_preview_vpy(&config, &deps(), PreviewStage::FilmDirt, true, 900);
+    assert!(pos(&s, "_vcg_want =") < pos(&s, "clip = _vcg_film_dirt("), "{s}");
+    assert!(pos(&s, "clip = _vcg_film_dirt(") < pos(&s, "clip = clip[_vcg_want]"));
+
+    let off = generate_film_stage_preview_vpy(&config, &deps(), PreviewStage::FilmDirt, false, 900);
+    assert!(!off.contains("_vcg_film_dirt"), "{off}");
+
+    let fields = generate_stage_preview_vpy(&config, &deps(), PreviewStage::FilmDirt, true);
+    assert!(!fields.contains("_vcg_film_dirt"), "{fields}");
+}
+
+/// A filter that compares a frame with its neighbours cannot be judged on
+/// bobbed fields, where the neighbours are the same film frame again. The
+/// film preview rebuilds a short stretch the way the export does and shows
+/// one frame of that.
+#[test]
+fn the_film_preview_rebuilds_a_short_stretch_and_shows_one_film_frame() {
+    use vcg_core::vpy::{generate_film_stage_preview_vpy, PreviewStage, FILM_PREVIEW_REACH};
+    let config = Config {
+        home_movie: true,
+        noise_level: vcg_core::config::NoiseLevel::Moderate,
+        ..Config::default()
+    };
+    let s = generate_film_stage_preview_vpy(&config, &deps(), PreviewStage::Noise, true, 5000);
+
+    // Only the stretch around the moment is read: the rebuild reads all of
+    // what it is given, in order, before the first frame.
+    assert!(s.contains("_vcg_at = min(5000, len(clip) - 1)"), "{s}");
+    assert!(s.contains(&format!("_vcg_a = max(0, _vcg_at - {FILM_PREVIEW_REACH})")), "{s}");
+    assert!(pos(&s, "clip = clip[_vcg_a:_vcg_b]") < pos(&s, "_vcg_fields = clip"));
+
+    // Rebuilt as the export rebuilds it, then filtered, then cut to the one
+    // frame — in that order, so the filter still has its neighbours.
+    assert!(pos(&s, "haf.srestore(_vcg_proxy") < pos(&s, "_vcg_want ="));
+    assert!(pos(&s, "_vcg_want =") < pos(&s, "bm3d"), "{s}");
+    assert!(pos(&s, "bm3d") < pos(&s, "clip = clip[_vcg_want]"));
+    assert!(pos(&s, "clip = clip[_vcg_want]") < pos(&s, "format=vs.YUV444P8"));
+
+    // The untouched half is the same script without the stage.
+    let off = generate_film_stage_preview_vpy(&config, &deps(), PreviewStage::Noise, false, 5000);
+    assert!(off.contains("clip = clip[_vcg_want]"));
+    assert!(!off.contains("bm3d"), "{off}");
+
+    // The file's clock is the export's business, not the preview's.
+    let video = Config {
+        home_movie_output: vcg_core::config::FilmOutput::Video,
+        ..config.clone()
+    };
+    let s = generate_film_stage_preview_vpy(&video, &deps(), PreviewStage::Noise, true, 5000);
+    assert!(!s.contains("_vcg_hold"), "{s}");
+
+    // And a tape that is not a home movie gets the ordinary preview.
+    let tape = Config { home_movie: false, ..config };
+    let s = generate_film_stage_preview_vpy(&tape, &deps(), PreviewStage::Noise, true, 5000);
+    assert!(!s.contains("_vcg_want"), "{s}");
+    assert!(!s.contains("srestore"), "{s}");
 }

@@ -23,7 +23,7 @@ use vcg_core::analysis::audio::AudioVerdict;
 use vcg_core::analysis::scopes;
 use vcg_core::analysis::histogram::{LumaHistogram, LEGAL_MAX, LEGAL_MIN};
 use vcg_core::config::{
-    ColorCorrection, Config, DehaloMode, DitherMethod, LevelsAdjustment, NoiseLevel,
+    ColorCorrection, Config, DehaloMode, DitherMethod, FilmDirt, LevelsAdjustment, NoiseLevel,
 };
 
 use crate::check::COLUMN;
@@ -577,6 +577,7 @@ fn stage_for(step: Step) -> Option<vcg_core::vpy::PreviewStage> {
     Some(match step {
         Step::Levels => P::Levels,
         Step::ColorTint => P::ColorTint,
+        Step::FilmDirt => P::FilmDirt,
         Step::Noise => P::Noise,
         Step::Halos => P::Halos,
         Step::FilmGrain => P::FilmGrain,
@@ -658,7 +659,7 @@ fn stage_pair(ui: &mut egui::Ui, app: &mut App, step: Step, current: usize) {
         // reader who has not asked for a comparison yet.
         if !is_no_op(step, current) {
             ui.add_space(8.0);
-            theme::paragraph(ui, RichText::new("Both halves are deinterlaced, so this is what the finished video will look like. That is why the first one takes a few seconds: the untouched half is the same picture on Levels, Color tint, Noise, Halos, Film grain and Smooth gradient fix, so it is rendered once and reused on all six. Moving the Moment slider starts again at the new moment.")
+            theme::paragraph(ui, RichText::new("Both halves are deinterlaced, so this is what the finished video will look like. That is why the first one takes a few seconds: the untouched half is the same picture on Levels, Color tint, Noise, Halos, Film grain and Smooth gradient fix — and on Film dirt, for a home movie — so it is rendered once and reused on all of them. Moving the Moment slider starts again at the new moment.")
                         .size(theme::FONT_TINY)
                         .color(theme::faint()),);
         }
@@ -1456,6 +1457,7 @@ fn page_for(step: Step) -> Option<&'static ChoicePage> {
     Some(match step {
         Step::Levels => &LEVELS,
         Step::ColorTint => &COLOUR_TINT,
+        Step::FilmDirt => &FILM_DIRT,
         Step::Noise => &NOISE,
         Step::Halos => &HALOS,
         Step::FilmGrain => &FILM_GRAIN,
@@ -1589,6 +1591,52 @@ static NOISE: ChoicePage = ChoicePage {
         "The tool is BM3D — block-matching in three dimensions, which gathers patches that look alike from this frame and its neighbors, filters them together in the frequency domain, and puts them back. It is the best there is for tape grain, because tape grain is exactly the kind of noise that does not repeat from patch to patch while real detail does. It also looks at the frames either side, not just this one.",
         "BM3D used to be the slow part of an export. The generated script now picks the fastest build your machine has: the CUDA one if you have an NVIDIA card, otherwise an AVX2 build that is four times quicker than the original, and the original itself if neither is present. On the machine this was measured on, denoising went from costing two-thirds of the export to costing almost nothing — the same picture, and the same settings, just better arithmetic.",
         "Below those, the script falls back to KNLMeansCL and then to SMDegrain from havsfunc, so the same .vpy runs wherever it lands. Luma and chroma are both denoised, in two passes: the luma with a temporal radius, the chroma spatially only and at half again the luma strength. Tape chroma is soft, which is a reason to filter it harder rather than leave it alone — there is little detail there to lose, and the colour-under subcarrier it rides on is as noisy as the luma. Only the temporal matching is held back from chroma, because that is what smears colour.",
+    ],
+};
+
+static FILM_DIRT: ChoicePage = ChoicePage {
+    title: "Film dirt",
+    lead: "Dust and dirt on the film show up as specks that flash on for a single frame. This takes them off by comparing each film frame with the one before and the one after.",
+    options: &[
+        Opt {
+            label: "Leave the film as it is",
+            note: "Every speck stays, and so does everything else.",
+        },
+        Opt {
+            label: "Light",
+            note: "Only the obvious specks. The safest setting.",
+        },
+        Opt {
+            label: "Normal",
+            note: "Most dust and dirt. A good place to start.",
+        },
+        Opt {
+            label: "Strong",
+            note: "Fainter marks too. Check small moving things in the preview before using it.",
+        },
+    ],
+    get: |c| match c.film_dirt {
+        FilmDirt::Off => 0,
+        FilmDirt::Light => 1,
+        FilmDirt::Normal => 2,
+        FilmDirt::Strong => 3,
+    },
+    set: |c, i| {
+        c.film_dirt = match i {
+            1 => FilmDirt::Light,
+            2 => FilmDirt::Normal,
+            3 => FilmDirt::Strong,
+            _ => FilmDirt::Off,
+        }
+    },
+    details: &[
+        "A speck of dust sits on one frame of film. The frame before and the frame after show the same scene without it. So each neighbor is shifted to line up with this frame — following whatever moved — and the middle value of the three, pixel by pixel, is this picture without the things only it has.",
+        "That middle value is not used everywhere, and this is the part that matters. Lining up three frames is never exact, and a picture rebuilt entirely from it comes out soft: on a test reel it blurred the texture of a brick wall on every frame of a pan. So it is used only where it differs from the real frame by more than a threshold, and one pixel around that. Everywhere else the frame is left exactly as it was. Dust is a big change in a small place; grain and alignment error are small changes everywhere.",
+        "The three strengths are that threshold: 16, 12 and 8 levels on the 0-255 scale. On a dusty reel that came to 0.09%, 0.21% and 0.73% of each frame being repaired. Lower than Strong starts repairing film grain, which is a poor way to remove grain — the Noise page does that properly.",
+        "What it can remove by mistake is anything small that is in one place for a single frame: a spark, a ball in flight, a glint. On the test reels a lit match in a moving hand and a small mark on a sweater both came through at Normal. Look at the preview on a moment with something small and fast in it, and at \"What changed\" underneath, which shows how much of this frame was touched.",
+        "What it cannot remove is dirt that stays in the same place on the screen from frame to frame — a hair caught in the projector's gate, or a mark on the lens of the camera that filmed the screen. That is in every frame, so by this test it is part of the picture. Dirt at the edge of the frame can be cut off on the Crop page; dirt in the middle needs retouching in an editor.",
+        "It runs on the rebuilt film frames, before noise removal, which is why this page only exists for a home movie. On video the frames either side are different moments rather than the same picture with different dirt, and there is nothing to compare.",
+        "The preview rebuilds about a second and a half of film around the moment you choose, the same way the export rebuilds all of it, so what you see here is what the export does to that frame.",
     ],
 };
 
@@ -2204,6 +2252,7 @@ mod tests {
         for (step, expect) in [
             (Step::Levels, 0),
             (Step::ColorTint, 0),
+            (Step::FilmDirt, 0),
             (Step::Noise, 0),
             (Step::Halos, 0),
             (Step::FilmGrain, 0),

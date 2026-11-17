@@ -495,6 +495,21 @@ fn manual_mode_does_not_clear_what_the_user_set() {
     assert_eq!(config.grain_strength, 1.5);
 }
 
+/// Film dirt removal is chosen on its own page in Full control and nowhere
+/// else. A strength left over from there must not follow the user into a
+/// mode with no page to see it on or turn it off.
+#[test]
+fn film_dirt_removal_survives_only_in_full_control() {
+    use vcg_core::config::FilmDirt;
+    let report = awful_tape();
+    for mode in Mode::ALL {
+        let mut config = Config { film_dirt: FilmDirt::Normal, ..Config::default() };
+        apply_report(&mut config, &report, mode);
+        let expect = if mode.shows_filter_pages() { FilmDirt::Normal } else { FilmDirt::Off };
+        assert_eq!(config.film_dirt, expect, "{mode:?}");
+    }
+}
+
 // ── Scan type is structural in every mode ───────────────────────────────────
 
 #[test]

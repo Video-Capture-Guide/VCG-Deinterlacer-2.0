@@ -119,6 +119,9 @@ impl QueuedJob {
             NoiseLevel::Moderate => out.push("Denoise moderate".into()),
             NoiseLevel::Heavy => out.push("Denoise heavy".into()),
         }
+        if c.removes_film_dirt() {
+            out.push(format!("Film dirt {}", c.film_dirt.label()));
+        }
         match c.dehalo_mode {
             DehaloMode::None => {}
             DehaloMode::Light => out.push("Dehalo light".into()),

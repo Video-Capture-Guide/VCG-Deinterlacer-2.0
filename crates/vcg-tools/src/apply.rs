@@ -87,6 +87,14 @@ pub fn options_for(mode: Mode) -> Options {
 pub fn apply_report(config: &mut Config, report: &Report, mode: Mode) {
     apply_structural(config, report);
 
+    // Film dirt removal is chosen by hand, on its own page, or not at all.
+    // Nothing measures how dusty a reel is, so there is no recommendation to
+    // apply — and a strength picked in Full control must not ride along into
+    // a mode that has no page to show it on or turn it off.
+    if !mode.shows_filter_pages() {
+        config.film_dirt = vcg_core::config::FilmDirt::Off;
+    }
+
     if mode.applies_recommendations() {
         apply_recommendations(config, report);
     } else if mode == Mode::JustDeinterlace {

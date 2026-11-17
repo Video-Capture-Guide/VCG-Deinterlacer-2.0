@@ -14,6 +14,21 @@ use vcg_core::config::Mode;
 
 use crate::theme;
 
+/// What decides which steps exist: the mode, and what kind of tape it is.
+///
+/// The mode alone used to be enough. It stopped being enough with the first
+/// page that is about film and nothing else — dust is on a frame of film,
+/// and a page offering to remove it from a camcorder tape is offering
+/// something that cannot be done. Passed as one value so the sidebar, the
+/// Back and Next buttons and "Step N of M" are always asked the same
+/// question and cannot count different lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Walk {
+    pub mode: Mode,
+    /// The export rebuilds a home movie (`Config::rebuilds_film`).
+    pub film: bool,
+}
+
 /// A wizard page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Step {
@@ -26,6 +41,8 @@ pub enum Step {
     Trim,
     Levels,
     ColorTint,
+    /// Home movies only — see `visible_in`.
+    FilmDirt,
     Noise,
     Halos,
     ColorBleeding,
@@ -39,7 +56,7 @@ pub enum Step {
 
 impl Step {
     /// Every step in walking order.
-    pub const ALL: [Step; 16] = [
+    pub const ALL: [Step; 17] = [
         Step::Welcome,
         Step::ChooseVideo,
         Step::CheckVideo,
@@ -47,6 +64,7 @@ impl Step {
         Step::Trim,
         Step::Levels,
         Step::ColorTint,
+        Step::FilmDirt,
         Step::Noise,
         Step::Halos,
         Step::ColorBleeding,
@@ -58,11 +76,13 @@ impl Step {
         Step::Export,
     ];
 
-    /// The eleven pages under "Settings".
-    pub const SETTINGS: [Step; 11] = [
+    /// The pages under "Settings": eleven for any tape, and one more, in
+    /// the order the export runs it, for a home movie.
+    pub const SETTINGS: [Step; 12] = [
         Step::Trim,
         Step::Levels,
         Step::ColorTint,
+        Step::FilmDirt,
         Step::Noise,
         Step::Halos,
         Step::ColorBleeding,
@@ -82,6 +102,7 @@ impl Step {
             Step::Trim => "Trim",
             Step::Levels => "Levels",
             Step::ColorTint => "Color tint",
+            Step::FilmDirt => "Film dirt",
             Step::Noise => "Noise",
             Step::Halos => "Halos",
             Step::ColorBleeding => "Color bleeding",
@@ -104,37 +125,46 @@ impl Step {
         Self::SETTINGS.contains(&self)
     }
 
-    /// Whether this step exists at all in `mode`.
-    pub fn visible_in(self, mode: Mode) -> bool {
+    /// A page about film and nothing else, which a tape that is not a home
+    /// movie does not have.
+    pub fn is_film_only(self) -> bool {
+        self == Step::FilmDirt
+    }
+
+    /// Whether this step exists at all on this walk.
+    pub fn visible_in(self, walk: Walk) -> bool {
         if self == Step::Welcome {
             return false;
         }
-        !self.is_setting() || mode.shows_filter_pages()
+        if self.is_film_only() && !walk.film {
+            return false;
+        }
+        !self.is_setting() || walk.mode.shows_filter_pages()
     }
 
-    /// The steps in walking order for `mode`, excluding Welcome.
-    pub fn visible(mode: Mode) -> Vec<Step> {
+    /// The steps in walking order, excluding Welcome.
+    pub fn visible(walk: Walk) -> Vec<Step> {
         Self::ALL
             .iter()
             .copied()
-            .filter(|s| s.visible_in(mode))
+            .filter(|s| s.visible_in(walk))
             .collect()
     }
 
-    pub fn next_in(self, mode: Mode) -> Option<Step> {
+    pub fn next_in(self, walk: Walk) -> Option<Step> {
         if self == Step::Welcome {
             return Some(Step::ChooseVideo);
         }
-        let steps = Self::visible(mode);
+        let steps = Self::visible(walk);
         let i = steps.iter().position(|s| *s == self)?;
         steps.get(i + 1).copied()
     }
 
-    pub fn prev_in(self, mode: Mode) -> Option<Step> {
+    pub fn prev_in(self, walk: Walk) -> Option<Step> {
         if self == Step::Welcome {
             return None;
         }
-        let steps = Self::visible(mode);
+        let steps = Self::visible(walk);
         let i = steps.iter().position(|s| *s == self)?;
         // No Back on step 1: Welcome is not somewhere the user returns to.
         if i == 0 { None } else { steps.get(i - 1).copied() }
@@ -145,13 +175,13 @@ impl Step {
     /// Full control reads "of up to N", because the Settings pages can all be
     /// skipped — and because jumping from "of 4" to "of 15" on choosing a mode
     /// reads as the app having got longer rather than more capable.
-    pub fn counter_label(self, mode: Mode) -> String {
+    pub fn counter_label(self, walk: Walk) -> String {
         if self == Step::Welcome {
             return String::new();
         }
-        let steps = Self::visible(mode);
+        let steps = Self::visible(walk);
         let position = steps.iter().position(|s| *s == self).unwrap_or(0) + 1;
-        if mode.shows_filter_pages() {
+        if walk.mode.shows_filter_pages() {
             format!("Step {position} of up to {}", steps.len())
         } else {
             format!("Step {position} of {}", steps.len())
@@ -159,8 +189,8 @@ impl Step {
     }
 
     /// The next step's name, so the forward button can be labeled with it.
-    pub fn next_title(self, mode: Mode) -> Option<&'static str> {
-        self.next_in(mode).map(|n| n.title())
+    pub fn next_title(self, walk: Walk) -> Option<&'static str> {
+        self.next_in(walk).map(|n| n.title())
     }
 }
 
@@ -183,7 +213,7 @@ pub fn sidebar(
     current: Step,
     visited: &[Step],
     reachable: bool,
-    mode: Mode,
+    walk: Walk,
     queue: &QueueBadge,
     current_is_queue: bool,
 ) -> SidebarAction {
@@ -211,7 +241,7 @@ pub fn sidebar(
     let mut number = 0;
     let mut settings_drawn = false;
 
-    for step in Step::visible(mode) {
+    for step in Step::visible(walk) {
         if step.is_setting() {
             // The group gets one numbered heading, then indented sub-items.
             if !settings_drawn {
@@ -229,7 +259,7 @@ pub fn sidebar(
                     visited,
                     reachable,
                 );
-                for sub in Step::SETTINGS {
+                for sub in Step::SETTINGS.into_iter().filter(|s| s.visible_in(walk)) {
                     if let Some(c) = nav_row(
                         ui,
                         RowSpec {
@@ -532,3 +562,33 @@ fn step_circle(
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Film dirt is a page for a home movie in Full control and for nothing
+    /// else, and the walk steps over it cleanly when it is not there.
+    #[test]
+    fn the_film_dirt_page_exists_only_for_a_home_movie_in_full_control() {
+        for mode in Mode::ALL {
+            let tape = Walk { mode, film: false };
+            let film = Walk { mode, film: true };
+            assert!(!Step::FilmDirt.visible_in(tape), "{mode:?}");
+            assert_eq!(
+                Step::FilmDirt.visible_in(film),
+                mode.shows_filter_pages(),
+                "{mode:?}"
+            );
+            if mode.shows_filter_pages() {
+                assert_eq!(Step::ColorTint.next_in(film), Some(Step::FilmDirt));
+                assert_eq!(Step::Noise.prev_in(film), Some(Step::FilmDirt));
+                assert_eq!(Step::ColorTint.next_in(tape), Some(Step::Noise));
+                assert_eq!(Step::Noise.prev_in(tape), Some(Step::ColorTint));
+                assert_eq!(Step::visible(film).len(), Step::visible(tape).len() + 1);
+            } else {
+                assert_eq!(Step::visible(film), Step::visible(tape));
+            }
+        }
+    }
+}

@@ -269,6 +269,7 @@ pub fn stage_snippet(config: &Config, stage: PreviewStage) -> String {
         PreviewStage::Levels => levels(&mut s, config),
         PreviewStage::ColorTint => color_correction(&mut s, config),
         PreviewStage::Noise => denoise(&mut s, config),
+        PreviewStage::FilmDirt => film_dirt(&mut s, config),
         PreviewStage::Halos => dehalo(&mut s, config),
         PreviewStage::FilmGrain => grain(&mut s, config),
         PreviewStage::Dither => dither(&mut s, config),
@@ -305,6 +306,10 @@ pub fn generate_vpy(config: &Config, deps: &DepsPaths) -> String {
 
     hd_par_correction(&mut s, config);
     yc_delay(&mut s, config);
+    // Before the denoiser: a speck is easiest to tell from picture while it
+    // is still sharp, and a denoiser that sees it first smears it into two
+    // frames' worth of something that is no longer a speck.
+    film_dirt(&mut s, config);
     denoise(&mut s, config);
     dehalo(&mut s, config);
     legacy_chroma_shift(&mut s, config);
@@ -315,6 +320,8 @@ pub fn generate_vpy(config: &Config, deps: &DepsPaths) -> String {
     upscale(&mut s, config, deps);
     matrix_601_to_709(&mut s, config);
     grain(&mut s, config);
+    // After the grain and everything else that looks at neighbouring frames.
+    film_output_clock(&mut s, config);
     tag_colorspace(&mut s, config);
     dither(&mut s, config);
 
@@ -1012,35 +1019,82 @@ fn home_movie(s: &mut Script, config: &Config, tff: &str) {
     s.push("    for m in range(int(len(_vcg_bob) * _vcg_factor))");
     s.push("]");
 
-    // The clock the file is given. The film frames are settled by here; this
-    // only decides how long each is shown, and stays a list so the lookup
-    // below is still the only thing between the bob and the output.
-    let (out_num, out_den) = match config.home_movie_output {
-        FilmOutput::Measured => (num, den),
+    // One frame per film frame, at the projector's speed, and nothing else.
+    // The clock the *file* is given is set by `film_output_clock`, at the far
+    // end of the chain: everything in between — dust removal, denoising,
+    // grain — has to see each film frame exactly once, and a frame held for
+    // two video frames here would be two frames to all of them.
+    s.push("def _vcg_pick(n):");
+    s.push("    return _vcg_bob[_vcg_picks[n]] * (n + 1)");
+    s.push("clip = core.std.FrameEval(");
+    s.push(format!(
+        "    core.std.BlankClip(_vcg_bob, length=len(_vcg_picks), fpsnum={num}, fpsden={den}),"
+    ));
+    s.push("    _vcg_pick,");
+    s.push(")");
+    // The lookup has the rate already; said again so the clip's rate is the
+    // reduced fraction, not whatever BlankClip kept.
+    s.push(format!(
+        "clip = core.std.AssumeFPS(clip, fpsnum={num}, fpsden={den})"
+    ));
+    s.gap();
+}
+
+/// Put the rebuilt film on the clock the file is written with.
+///
+/// The last thing done to the picture before it is tagged and dithered, and
+/// deliberately so. It used to happen inside `home_movie`, by rewriting the
+/// list of picks — which meant that in the video-rate mode every filter after
+/// it worked on a clip where most film frames appear twice. Grain was the
+/// visible case: a film frame held for two video frames got two different
+/// grain patterns, which is video noise, not film grain. A temporal filter
+/// fares worse — to a dust remover, a speck that is there for two frames
+/// running is part of the picture.
+///
+/// Nothing is resampled in any of the three: the frames are the ones the
+/// chain produced, shown for longer, or on a different clock.
+fn film_output_clock(s: &mut Script, config: &Config) {
+    if !config.rebuilds_film() {
+        return;
+    }
+    let (num, den) = config.film_fps_ratio();
+    match config.home_movie_output {
+        // Already on the projector's own clock.
+        FilmOutput::Measured => {}
         FilmOutput::Video => {
-            let (vn, vd) = if config.format == VideoFormat::Pal { (25, 1) } else { (30000, 1001) };
-            s.gap();
+            let pal = config.format == VideoFormat::Pal;
+            let (vn, vd) = if pal { (25, 1) } else { (30000, 1001) };
             s.push(format!(
                 "# Shown at the tape's own {} fps: each film frame held for one or two",
-                if config.format == VideoFormat::Pal { "25" } else { "29.97" }
+                if pal { "25" } else { "29.97" }
             ));
-            s.push("# video frames. Same running time, and a rate every editor has.");
-            s.push(format!(
-                "_vcg_hold = ({vn} / {vd}) / ({num} / {den})"
-            ));
-            s.push("_vcg_picks = [");
-            s.push("    _vcg_picks[min(int(m / _vcg_hold), len(_vcg_picks) - 1)]");
+            s.push("# video frames. Same running time, and a rate every editor has. Done");
+            s.push("# last, so every filter above saw each film frame once.");
+            s.push(format!("_vcg_hold = ({vn} / {vd}) / ({num} / {den})"));
+            s.push("_vcg_film = clip");
+            s.push("_vcg_shown = [");
+            s.push("    min(int(m / _vcg_hold), len(_vcg_film) - 1)");
             // Counted from the fields, not from the film frames: rounding
             // down twice would end the picture a frame before the sound.
             s.push(format!(
                 "    for m in range(int(len(_vcg_bob) * ({vn} / {vd}) * _vcg_bob.fps_den / _vcg_bob.fps_num))"
             ));
             s.push("]");
-            (vn, vd)
+            s.push("def _vcg_show(n):");
+            s.push("    return _vcg_film[_vcg_shown[n]] * (n + 1)");
+            s.push("clip = core.std.FrameEval(");
+            s.push(format!(
+                "    core.std.BlankClip(_vcg_film, length=len(_vcg_shown), fpsnum={vn}, fpsden={vd}),"
+            ));
+            s.push("    _vcg_show,");
+            s.push(")");
+            s.push(format!(
+                "clip = core.std.AssumeFPS(clip, fpsnum={vn}, fpsden={vd})"
+            ));
+            s.gap();
         }
         FilmOutput::Conform => {
             let nominal = config.home_movie_rate.fps();
-            s.gap();
             s.push(format!(
                 "# Conformed to {nominal} fps: the same frames on the clock the film was shot"
             ));
@@ -1049,23 +1103,13 @@ fn home_movie(s: &mut Script, config: &Config, tff: &str) {
                 (config.film_stretch() - 1.0).abs() * 100.0,
                 if config.film_stretch() >= 1.0 { "longer" } else { "shorter" }
             ));
-            (nominal * 100, 100)
+            s.push(format!(
+                "clip = core.std.AssumeFPS(clip, fpsnum={}, fpsden=100)",
+                nominal * 100
+            ));
+            s.gap();
         }
-    };
-    s.push("def _vcg_pick(n):");
-    s.push("    return _vcg_bob[_vcg_picks[n]] * (n + 1)");
-    s.push("clip = core.std.FrameEval(");
-    s.push(format!(
-        "    core.std.BlankClip(_vcg_bob, length=len(_vcg_picks), fpsnum={out_num}, fpsden={out_den}),"
-    ));
-    s.push("    _vcg_pick,");
-    s.push(")");
-    // The lookup has the rate already; said again so the clip's rate is the
-    // reduced fraction the muxer is told, not whatever BlankClip kept.
-    s.push(format!(
-        "clip = core.std.AssumeFPS(clip, fpsnum={out_num}, fpsden={out_den})"
-    ));
-    s.gap();
+    }
 }
 
 /// Emit `target = haf.QTGMC(source, ...)` with the standard profile.
@@ -1392,6 +1436,91 @@ fn denoise(s: &mut Script, config: &Config) {
     s.push(format!(
         "            clip = haf.SMDegrain(clip, tr={sm_tr}, thSAD={sm_thsad}, plane=4)  # last resort; plane=4 (all planes) is the default"
     ));
+    s.gap();
+}
+
+/// Take dust and dirt off a rebuilt home movie.
+///
+/// A speck of dust is on one frame of film. The frame before and the frame
+/// after show the same scene without it, so if each is moved onto this frame
+/// — motion compensated, so that what was to the left a moment ago is where
+/// it is now — the median of the three is this picture without the speck.
+/// That is SpotLess, and on its own it is not fit to ship.
+///
+/// Measured on two transfers before any of this was written:
+///
+/// * Left to replace the whole frame, the median rewrote the texture of a
+///   brick wall across most of the picture on every frame of a pan. Motion
+///   compensation is never exact, and a median of three inexact copies is a
+///   soft copy.
+/// * Reaching two frames either side instead of one, it erased a small dark
+///   mark on a sweater that is there in four frames running — which makes it
+///   part of the scene, not dirt.
+///
+/// So the median is only *consulted*. It is taken where it differs from the
+/// frame by more than a threshold, and one pixel around that, and the frame
+/// is left exactly as it was everywhere else. A speck is a large, local
+/// change; compensation error and grain are small ones. With that guard the
+/// same wall came through untouched, and so did the sweater and a lit match
+/// in a moving hand, while the specks on a plain wall went.
+///
+/// It reaches one frame either side, never more, for the sweater's reason.
+///
+/// What it cannot touch is dirt that stays put on the screen — a hair in the
+/// projector's gate — because that is in every frame, in the same place,
+/// and by this test it is picture.
+///
+/// Only on a rebuilt film. On the bobbed fields a speck sits on three or
+/// four frames in a row, and on video there is no such thing as the same
+/// frame with different dirt.
+///
+/// The temporal median is `rgvs.Clense`, which is exactly a median of the
+/// previous, current and next frame, and has been in every payload. Nothing
+/// here is behind a `try`: a filter that quietly did not run is worse than
+/// one that fails, and this app has shipped that mistake before.
+fn film_dirt(s: &mut Script, config: &Config) {
+    if !config.removes_film_dirt() {
+        return;
+    }
+    let Some(threshold) = config.film_dirt.threshold() else {
+        return;
+    };
+    // The clip is 16-bit; the threshold is kept in 8-bit steps because that
+    // is the scale every other number in the app is quoted on.
+    let limit = threshold * 256;
+
+    s.push(format!(
+        "# Film dirt ({}) — specks that are on one film frame and not on its neighbours",
+        config.film_dirt.label()
+    ));
+    s.push("# The frames before and after are moved onto this one, and the median of the");
+    s.push("# three is this picture without whatever only it has. That median is used");
+    s.push(format!(
+        "# only where it differs by more than {threshold} levels (of 255) — a speck — and the"
+    ));
+    s.push("# frame is left exactly as it was everywhere else.");
+    s.push("def _vcg_film_dirt(src, limit):");
+    s.push("    # Vectors from a blurred copy, so the dirt does not steer its own repair");
+    s.push("    soft = core.std.Convolution(src, matrix=[1, 2, 1, 2, 4, 2, 1, 2, 1])");
+    s.push("    sup_find = core.mv.Super(soft, pel=2, sharp=1)");
+    s.push("    sup_move = core.mv.Super(src, pel=2, sharp=1, levels=1)");
+    s.push("    fwd = core.mv.Analyse(sup_find, isb=False, delta=1, blksize=8, overlap=4, truemotion=True)");
+    s.push("    bck = core.mv.Analyse(sup_find, isb=True, delta=1, blksize=8, overlap=4, truemotion=True)");
+    s.push("    # thsad this high means: always use the moved block. Across a cut the");
+    s.push("    # plugin hands back this frame instead, and the median changes nothing.");
+    s.push("    before = core.mv.Compensate(src, sup_move, fwd, thsad=10000)");
+    s.push("    after = core.mv.Compensate(src, sup_move, bck, thsad=10000)");
+    s.push("    # Clense is the median of previous, current and next");
+    s.push("    three = core.std.Interleave([before, src, after])");
+    s.push("    clean = core.std.SelectEvery(core.rgvs.Clense(three), cycle=3, offsets=1)");
+    s.push("    # Where the median moved the luma a long way, and one pixel around it");
+    s.push("    y_src = core.std.ShufflePlanes(src, planes=0, colorfamily=vs.GRAY)");
+    s.push("    y_clean = core.std.ShufflePlanes(clean, planes=0, colorfamily=vs.GRAY)");
+    s.push("    speck = core.std.Expr([y_src, y_clean], f\"x y - abs {limit} > 65535 0 ?\")");
+    s.push("    speck = core.std.Convolution(core.std.Maximum(speck), matrix=[1] * 9)");
+    s.push("    return core.std.MaskedMerge(src, clean, speck, first_plane=True)");
+    s.gap();
+    s.push(format!("clip = _vcg_film_dirt(clip, limit={limit})"));
     s.gap();
 }
 
@@ -1812,6 +1941,9 @@ pub enum PreviewStage {
     Levels,
     ColorTint,
     Noise,
+    /// Dust removal on a rebuilt home movie. Only the film preview can show
+    /// it: it compares film frames, and the ordinary preview has none.
+    FilmDirt,
     Halos,
     FilmGrain,
     /// The bit-depth reduction, where banding comes from.
@@ -1825,6 +1957,7 @@ impl PreviewStage {
             PreviewStage::Levels => "levels",
             PreviewStage::ColorTint => "tint",
             PreviewStage::Noise => "noise",
+            PreviewStage::FilmDirt => "dirt",
             PreviewStage::Halos => "halos",
             PreviewStage::FilmGrain => "grain",
             PreviewStage::Dither => "dither",
@@ -1871,12 +2004,69 @@ pub fn generate_stage_preview_vpy(
     stage: PreviewStage,
     apply: bool,
 ) -> String {
+    stage_preview(config, deps, stage, apply, None)
+}
+
+/// How much tape the film preview rebuilds, in interlaced frames either side
+/// of the moment asked for: 49 frames, 98 fields, about 30 film frames.
+///
+/// Enough for sRestore's eight-field history to have settled well before the
+/// middle, and for a filter that looks a film frame or two either side to
+/// find real neighbours there. Short enough that reading it in order — which
+/// the rebuild has to do before the first frame — is a fraction of a second.
+pub const FILM_PREVIEW_REACH: u64 = 24;
+
+/// The same before/after script, for a home movie, on a *film* frame.
+///
+/// `generate_stage_preview_vpy` shows a deinterlaced field, which is the
+/// right picture for a filter that works on one frame at a time and the
+/// wrong one for anything that compares a frame with its neighbours. On the
+/// bobbed clip the neighbours of a field are the same film frame again,
+/// three or four times over: a dust speck is "there in every frame" and so
+/// is kept, and a temporal denoiser is averaging a frame with itself. The
+/// export works on the rebuilt film, so the preview of those stages has to.
+///
+/// So a short stretch of tape around `frame` (a source frame number) is
+/// rebuilt exactly as the export rebuilds the whole tape, the stage is
+/// applied to that, and the script puts out the one film frame nearest the
+/// moment asked for — as frame 0, since numbering by source frame means
+/// nothing once the film is rebuilt.
+///
+/// For a source that is not a home movie this is the ordinary preview.
+pub fn generate_film_stage_preview_vpy(
+    config: &Config,
+    deps: &DepsPaths,
+    stage: PreviewStage,
+    apply: bool,
+    frame: u64,
+) -> String {
+    let film = config.rebuilds_film().then_some(frame);
+    stage_preview(config, deps, stage, apply, film)
+}
+
+fn stage_preview(
+    config: &Config,
+    deps: &DepsPaths,
+    stage: PreviewStage,
+    apply: bool,
+    film_at: Option<u64>,
+) -> String {
     let mut s = Script::new();
 
     header(&mut s);
     plugin_loading(&mut s, config, deps);
     source_loading(&mut s, config);
     normalize_pixel_format(&mut s, config);
+    if let Some(frame) = film_at {
+        let reach = FILM_PREVIEW_REACH;
+        s.push("# Preview: a short stretch of tape around the moment asked for, so the");
+        s.push("# film can be rebuilt there the way the export rebuilds all of it");
+        s.push(format!("_vcg_at = min({frame}, len(clip) - 1)"));
+        s.push(format!("_vcg_a = max(0, _vcg_at - {reach})"));
+        s.push(format!("_vcg_b = min(len(clip), _vcg_at + {reach} + 1)"));
+        s.push("clip = clip[_vcg_a:_vcg_b]");
+        s.gap();
+    }
     convert_to_yuv422(&mut s, config);
     lift_to_16bit(&mut s);
 
@@ -1900,14 +2090,33 @@ pub fn generate_stage_preview_vpy(
     // asked for. The deinterlaced field is the same picture the restored
     // frame is built from, which is all a filter preview needs to show.
     snap_height(&mut s);
-    let bobbed = Config { home_movie: false, ..config.clone() };
-    deinterlace(&mut s, &bobbed);
+    if film_at.is_some() {
+        deinterlace(&mut s, config);
+        // Two fields to a source frame, and `_vcg_factor` film frames to a
+        // field: where the moment asked for landed in the rebuilt stretch.
+        s.push("# The film frame nearest the moment asked for");
+        s.push(
+            "_vcg_want = min(int((_vcg_at - _vcg_a) * 2 * _vcg_factor), len(clip) - 1)",
+        );
+        s.gap();
+    } else {
+        let bobbed = Config { home_movie: false, ..config.clone() };
+        deinterlace(&mut s, &bobbed);
+    }
 
     if apply {
         match stage {
             PreviewStage::Levels => levels(&mut s, config),
             PreviewStage::ColorTint => color_correction(&mut s, config),
             PreviewStage::Noise => denoise(&mut s, config),
+            // On film frames or not at all: among bobbed fields a speck is
+            // in three or four frames running and would be kept as picture,
+            // so the preview would show the filter doing nothing.
+            PreviewStage::FilmDirt => {
+                if film_at.is_some() {
+                    film_dirt(&mut s, config)
+                }
+            }
             PreviewStage::Halos => dehalo(&mut s, config),
             PreviewStage::FilmGrain => grain(&mut s, config),
             PreviewStage::Dither => preview_dither(&mut s, config),
@@ -1919,6 +2128,13 @@ pub fn generate_stage_preview_vpy(
     //
     // For the dither preview the depth reduction has already happened above,
     // and this conversion only changes the layout.
+    if film_at.is_some() {
+        // After the stage, not before: a filter that looks either side of
+        // the frame needs the frames either side to still be there.
+        s.push("# Preview: that one film frame, as frame 0");
+        s.push("clip = clip[_vcg_want]");
+        s.gap();
+    }
     s.push("# 8-bit YUV 4:4:4 for the y4m pipe");
     s.push("clip = core.resize.Spline36(clip, format=vs.YUV444P8)");
     s.gap();

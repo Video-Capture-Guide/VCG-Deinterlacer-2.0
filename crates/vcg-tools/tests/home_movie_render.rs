@@ -28,6 +28,17 @@ fn beside_repo(rel: &[&str]) -> PathBuf {
 /// `None` when the sample tape or the bundled tools are not on this machine.
 /// `name` keeps the scripts of tests running side by side apart.
 fn render(name: &str, tweak: impl FnOnce(&mut Config)) -> Option<vcg_tools::run::Output> {
+    render_into(name, tweak, "-")
+}
+
+/// The same, with the stream sent to `target`: "-" for stdout, which comes
+/// back as text and is only good for counting, or a file when the bytes
+/// themselves are to be compared.
+fn render_into(
+    name: &str,
+    tweak: impl FnOnce(&mut Config),
+    target: &str,
+) -> Option<vcg_tools::run::Output> {
     let sample = beside_repo(&["..", "Sample Videos", "8mm to VHS to GVUSB2.avi"]);
     let deps = beside_repo(&["..", "_deps"]);
     if !sample.is_file() || !deps.is_dir() {
@@ -67,7 +78,7 @@ fn render(name: &str, tweak: impl FnOnce(&mut Config)) -> Option<vcg_tools::run:
     std::fs::write(&path, script.as_bytes()).expect("write script");
 
     let mut cmd = vcg_tools::run::command(&vspipe.path);
-    cmd.args(["-c", "y4m", &path.display().to_string(), "-"]);
+    cmd.args(["-c", "y4m", &path.display().to_string(), target]);
     for key in tools.vspipe_env_removals() {
         cmd.env_remove(key);
     }
@@ -122,6 +133,131 @@ fn the_video_and_conformed_clocks_render() {
     // 4.004 s of film at 18.5 fps is 74 frames; on an 18 fps clock they
     // run 4.11 s, which is the stretch.
     assert_eq!(rate_and_frames(&conform), ("F18:1".to_string(), 74));
+}
+
+/// The Settings-page preview of a home movie, rendered: one rebuilt film
+/// frame with the stage off, and one with it on.
+///
+/// Through `stage_frame` itself rather than the script alone, because the
+/// frame number it asks vspipe for changes with the script — the film
+/// preview puts its one frame out as frame 0 — and a mismatch there is a
+/// preview of nothing, which only running it shows.
+#[test]
+fn the_settings_preview_of_a_home_movie_is_a_rebuilt_film_frame() {
+    use vcg_core::config::NoiseLevel;
+    use vcg_core::vpy::PreviewStage;
+    use vcg_tools::{preview, probe};
+
+    let sample = beside_repo(&["..", "Sample Videos", "8mm to VHS to GVUSB2.avi"]);
+    let deps_dir = beside_repo(&["..", "_deps"]);
+    if !sample.is_file() || !deps_dir.is_dir() {
+        eprintln!("skipped: sample tape or _deps not present");
+        return;
+    }
+    let tools = ToolPaths::discover(Some(&deps_dir));
+    let Some(vs) = tools.vs_deps_dir.clone() else {
+        eprintln!("skipped: vspipe not in _deps");
+        return;
+    };
+    let deps = DepsPaths::new(vs);
+    let report = probe::probe_file(&tools, &sample, probe::Options::container_only(), None);
+    let info = report.info.expect("the sample has a video stream");
+
+    let config = Config {
+        input_path: sample.display().to_string(),
+        format: VideoFormat::Ntsc,
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps18,
+        noise_level: NoiseLevel::Heavy,
+        ..Config::default()
+    };
+    let frame = |apply: bool| {
+        let started = std::time::Instant::now();
+        let image = preview::stage_frame(preview::StageRequest {
+            tools: &tools,
+            deps: &deps,
+            config: &config,
+            file: &sample,
+            info: &info,
+            stage: PreviewStage::Noise,
+            apply,
+            at: 22.0,
+            out: (640, 480),
+        })
+        .unwrap_or_else(|e| panic!("the film preview (apply={apply}) failed: {e}"));
+        eprintln!("film preview, apply={apply}: {:.1}s", started.elapsed().as_secs_f64());
+        image
+    };
+    let (off, on) = (frame(false), frame(true));
+    assert_eq!(off.rgb.len(), 640 * 480 * 3);
+    assert_eq!(on.rgb.len(), 640 * 480 * 3);
+
+    // A picture, not a blank: the frame number asked for exists.
+    let spread = |rgb: &[u8]| rgb.iter().max().unwrap() - rgb.iter().min().unwrap();
+    assert!(spread(&off.rgb) > 60, "the untouched half is flat");
+
+    // And the stage did something to it, without replacing it.
+    let diff: f64 = off
+        .rgb
+        .iter()
+        .zip(&on.rgb)
+        .map(|(a, b)| (*a as i32 - *b as i32).unsigned_abs() as f64)
+        .sum::<f64>()
+        / off.rgb.len() as f64;
+    eprintln!("mean difference with heavy denoising: {diff:.2}");
+    assert!(diff > 0.1, "denoising changed nothing ({diff:.3})");
+    assert!(diff < 12.0, "the two halves are different pictures ({diff:.1})");
+}
+
+/// Dust removal, rendered through the export script.
+///
+/// The text tests say the script calls the filter; this says VapourSynth can
+/// run it — the right argument names, a bit depth every plugin in it
+/// accepts — and that what comes out is the same film with a little of it
+/// repaired, not a different number of frames or a different picture.
+#[test]
+fn film_dirt_removal_renders_and_repairs_only_a_little_of_each_frame() {
+    use vcg_core::config::FilmDirt;
+    // To files: stdout comes back as text, and bytes that are not text do
+    // not survive that well enough to be compared one for one.
+    let bytes = |name: &str, dirt: FilmDirt| -> Option<Vec<u8>> {
+        let file = std::env::temp_dir()
+            .join("vcg-home-movie-test")
+            .join(format!("{name}-{}.y4m", std::process::id()));
+        std::fs::create_dir_all(file.parent().unwrap()).expect("temp dir");
+        render_into(name, |c| c.film_dirt = dirt, &file.display().to_string())?;
+        let data = std::fs::read(&file).expect("the rendered stream");
+        let _ = std::fs::remove_file(&file);
+        Some(data)
+    };
+    let Some(plain) = bytes("dirt-off", FilmDirt::Off) else {
+        return;
+    };
+    let Some(cleaned) = bytes("dirt-on", FilmDirt::Normal) else {
+        return;
+    };
+    let frames = |d: &[u8]| d.windows(6).filter(|w| w == b"FRAME
+").count();
+    assert!(frames(&plain) >= 72, "{} frames", frames(&plain));
+
+    // Same length of stream, so the bytes line up frame for frame.
+    let (a, b) = (&plain[..], &cleaned[..]);
+    assert_eq!(a.len(), b.len(), "the two renders are different sizes");
+    // By more than two levels. The last step of the script is error-diffusion
+    // dither, which carries each pixel's rounding error into its neighbours,
+    // so one repaired speck moves pixels a level either way for some distance
+    // around it. Those are not repairs and are not counted as repairs.
+    let touched = a.iter().zip(b).filter(|(x, y)| x != y).count();
+    let changed = a.iter().zip(b).filter(|(x, y)| x.abs_diff(**y) > 2).count();
+    let share = changed as f64 / a.len() as f64;
+    eprintln!(
+        "Normal dust removal: {:.3}% of bytes repaired, {:.3}% touched at all",
+        share * 100.0,
+        touched as f64 / a.len() as f64 * 100.0
+    );
+    assert!(changed > 0, "dust removal changed nothing at all");
+    // Guarded: a filter that rewrote the picture would change most of it.
+    assert!(share < 0.05, "{:.1}% of the stream changed", share * 100.0);
 }
 
 #[test]

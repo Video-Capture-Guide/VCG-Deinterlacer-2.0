@@ -104,6 +104,9 @@ pub fn summary(config: &Config, version: &str) -> String {
             config.u_correction, config.v_correction
         ));
     }
+    if config.removes_film_dirt() {
+        parts.push(format!("film dirt removed ({})", config.film_dirt.label()));
+    }
     if config.noise_level != NoiseLevel::None {
         parts.push(format!("denoise {}", lower(&format!("{:?}", config.noise_level))));
     }
@@ -366,6 +369,24 @@ mod tests {
         assert!(s.contains("denoise moderate"), "{s}");
         assert!(!s.contains("dehalo"), "untouched settings stay out: {s}");
         assert!(!s.contains("grain"), "{s}");
+    }
+
+    /// Dust removal is named when it ran, and only then: the setting can sit
+    /// in a config for a tape it does nothing to.
+    #[test]
+    fn the_summary_names_film_dirt_removal_only_when_it_ran() {
+        use crate::config::FilmDirt;
+        let film = Config {
+            home_movie: true,
+            film_dirt: FilmDirt::Normal,
+            ..Config::default()
+        };
+        let s = summary(&film, "2.0.0");
+        assert!(s.contains("film dirt removed (normal)"), "{s}");
+
+        let tape = Config { home_movie: false, ..film };
+        let s = summary(&tape, "2.0.0");
+        assert!(!s.contains("film dirt"), "{s}");
     }
 
     /// Field order is in the summary, because it is the setting most worth
