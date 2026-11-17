@@ -1505,6 +1505,12 @@ fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
     // The median is consulted, not substituted: the frame is merged with it
     // through a mask of where it moved the picture a long way.
     assert!(s.contains("core.std.MaskedMerge(src, clean, speck, first_plane=True)"), "{s}");
+    // The neighbours are matched to this frame's brightness before the
+    // median: film flickers, and an unmatched dark frame got pale patches
+    // of its neighbours pasted over a wall.
+    assert!(pos(&s, "here = broad(src)") < pos(&s, "core.rgvs.Clense("), "{s}");
+    assert!(s.contains("before = core.std.Expr([before, broad(before), here], \"x y - z +\")"));
+    assert!(s.contains("after = core.std.Expr([after, broad(after), here], \"x y - z +\")"));
     // Nothing in it is allowed to fail quietly.
     let body = &s[pos(&s, "def _vcg_film_dirt(")..pos(&s, "clip = _vcg_film_dirt(")];
     assert!(!body.contains("try:"), "{body}");

@@ -1466,6 +1466,14 @@ fn denoise(s: &mut Script, config: &Config) {
 ///
 /// It reaches one frame either side, never more, for the sweater's reason.
 ///
+/// And the neighbours are brought to this frame's brightness before they
+/// are compared with it. Without that, the first export anyone looked at
+/// had pale blotches on a wall and a sweater: film flickers, that frame was
+/// exposed darker than the two around it, and wherever the gap passed the
+/// threshold a patch of the brighter frames was pasted in. Only the broad
+/// brightness is matched — the picture at a sixteenth of its size — so a
+/// speck, which is small, is still a difference.
+///
 /// What it cannot touch is dirt that stays put on the screen — a hair in the
 /// projector's gate — because that is in every frame, in the same place,
 /// and by this test it is picture.
@@ -1510,6 +1518,16 @@ fn film_dirt(s: &mut Script, config: &Config) {
     s.push("    # plugin hands back this frame instead, and the median changes nothing.");
     s.push("    before = core.mv.Compensate(src, sup_move, fwd, thsad=10000)");
     s.push("    after = core.mv.Compensate(src, sup_move, bck, thsad=10000)");
+    s.push("    # Film flickers: one frame is exposed darker than the next. Each neighbour");
+    s.push("    # is given this frame's broad brightness first, or a dark frame differs");
+    s.push("    # from its neighbours by more than the limit across whole areas and gets");
+    s.push("    # patches of them pasted in.");
+    s.push("    def broad(c):");
+    s.push("        small = core.resize.Bilinear(c, c.width // 16, c.height // 16)");
+    s.push("        return core.resize.Bicubic(small, c.width, c.height)");
+    s.push("    here = broad(src)");
+    s.push("    before = core.std.Expr([before, broad(before), here], \"x y - z +\")");
+    s.push("    after = core.std.Expr([after, broad(after), here], \"x y - z +\")");
     s.push("    # Clense is the median of previous, current and next");
     s.push("    three = core.std.Interleave([before, src, after])");
     s.push("    clean = core.std.SelectEvery(core.rgvs.Clense(three), cycle=3, offsets=1)");

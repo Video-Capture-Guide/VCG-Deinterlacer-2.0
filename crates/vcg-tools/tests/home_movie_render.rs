@@ -23,6 +23,20 @@ fn beside_repo(rel: &[&str]) -> PathBuf {
     p
 }
 
+/// The sample tape, under either of the names it has been kept under.
+///
+/// These tests pass quietly without it, which is right on another machine
+/// and wrong on this one: the file was renamed once and every render test
+/// here went on passing in no time at all, having rendered nothing.
+fn sample_tape() -> PathBuf {
+    let named = |name: &str| beside_repo(&["..", "Sample Videos", name]);
+    let first = named("8mm to VHS to GVUSB2.avi");
+    if first.is_file() {
+        return first;
+    }
+    named("8mm to VHS to GVUSB2-b.avi")
+}
+
 /// Render four seconds of the sample through the generated script.
 ///
 /// `None` when the sample tape or the bundled tools are not on this machine.
@@ -39,7 +53,7 @@ fn render_into(
     tweak: impl FnOnce(&mut Config),
     target: &str,
 ) -> Option<vcg_tools::run::Output> {
-    let sample = beside_repo(&["..", "Sample Videos", "8mm to VHS to GVUSB2.avi"]);
+    let sample = sample_tape();
     let deps = beside_repo(&["..", "_deps"]);
     if !sample.is_file() || !deps.is_dir() {
         eprintln!("skipped: sample tape or _deps not present");
@@ -148,7 +162,7 @@ fn the_settings_preview_of_a_home_movie_is_a_rebuilt_film_frame() {
     use vcg_core::vpy::PreviewStage;
     use vcg_tools::{preview, probe};
 
-    let sample = beside_repo(&["..", "Sample Videos", "8mm to VHS to GVUSB2.avi"]);
+    let sample = sample_tape();
     let deps_dir = beside_repo(&["..", "_deps"]);
     if !sample.is_file() || !deps_dir.is_dir() {
         eprintln!("skipped: sample tape or _deps not present");
