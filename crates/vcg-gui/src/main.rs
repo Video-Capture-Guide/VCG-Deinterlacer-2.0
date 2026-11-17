@@ -1598,12 +1598,18 @@ impl App {
         }
     }
 
-    /// Add the current settings to the queue and clear the wizard for the
-    /// next video.
+    /// Add the current settings to the queue, clear the wizard for the next
+    /// video, and show the queue.
     ///
     /// If nothing is running the job starts immediately, which is what makes
     /// the queue feel like a printer queue rather than a holding pen: the
     /// first thing you add just goes.
+    ///
+    /// The queue is shown rather than the empty Choose video page it used to
+    /// land on. That page looked exactly as it does before anything has
+    /// happened, so people could not tell the export had started at all; the
+    /// queue shows it running, and its "Add another video" button is the way
+    /// on to the next tape.
     pub fn add_to_queue(&mut self) {
         if !self.can_export() {
             return;
@@ -1626,6 +1632,7 @@ impl App {
             ));
         }
         self.reset_for_another();
+        self.show_queue = true;
     }
 
     /// Drop a waiting job, or stop the running one.
@@ -1782,7 +1789,11 @@ impl App {
                     self.start_next_queued();
                 }
             }
-            Q::Close => self.show_queue = false,
+            Q::Close => {
+                self.show_queue = false;
+                // Said once, on arrival; stale by the next visit.
+                self.queue_notice = None;
+            }
         }
     }
 

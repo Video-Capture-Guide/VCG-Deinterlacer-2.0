@@ -147,7 +147,7 @@ pub fn export_page(ui: &mut egui::Ui, app: &mut App) -> PageAction {
     let busy = app.export_job.is_some();
     let waiting = app.queue.len();
 
-    crate::check::section_number(ui, 5, "How do you want to run this?");
+    crate::check::section_number(ui, 5, "Start the export");
     ui.add_space(10.0);
     if let Some(choice) = run_choice(ui, ready, busy, waiting) {
         match choice {
@@ -179,6 +179,10 @@ enum RunChoice {
 /// "Start" and "Add to queue" both start an export eventually, and what
 /// differs is what happens to *you* — whether you sit and watch or go and
 /// load the next tape. Each card says that consequence.
+///
+/// Each card ends in a real button. They used to be clickable cards with no
+/// button in them, and people did not see them as something to press — the
+/// page appeared to end with two paragraphs and no way forward.
 fn run_choice(
     ui: &mut egui::Ui,
     ready: bool,
@@ -197,11 +201,11 @@ fn run_choice(
         let queue_body = if busy || waiting > 0 {
             format!(
                 "Goes in at number {position} and starts when the videos ahead of it \
-                 finish. You go back to step 1 to set up the next tape."
+                 finish. You are taken to the queue, where you can add the next tape."
             )
         } else {
-            "Starts straight away, and sends you back to step 1 so you can line up \
-             the next tape while this one runs."
+            "Starts straight away and takes you to the queue, where you can watch \
+             it and add the next tape while this one runs."
                 .to_string()
         };
         if choice_card(ui, half, "Add to queue", &queue_body, ready, true) {
@@ -226,7 +230,12 @@ fn run_choice(
     chosen
 }
 
-/// One of the two cards. Returns whether it was clicked.
+/// One of the two cards, ending in its button. Returns whether the button
+/// was pressed.
+///
+/// The recommended card's button is the filled accent one — the same look
+/// as Next on every other page, so it reads as the way forward — and the
+/// other is an ordinary outlined button.
 fn choice_card(
     ui: &mut egui::Ui,
     width: f32,
@@ -244,19 +253,20 @@ fn choice_card(
             .inner_margin(egui::Margin::symmetric(16, 14))
             .stroke(egui::Stroke::new(
                 if recommended { 2.0 } else { 1.0 },
-                if !enabled {
-                    theme::line()
-                } else if recommended {
+                if enabled && recommended {
                     theme::accent()
                 } else {
                     theme::line()
                 },
             ));
 
-        let response = frame
-            .show(ui, |ui| {
-                ui.set_width(width - 32.0);
-                ui.set_min_height(96.0);
+        frame.show(ui, |ui| {
+            let inner = width - 32.0;
+            ui.set_width(inner);
+            // The text block has a fixed floor so the two buttons line up
+            // across the cards whatever each one says.
+            ui.vertical(|ui| {
+                ui.set_min_height(84.0);
                 ui.label(
                     RichText::new(title)
                         .size(theme::FONT_SECTION)
@@ -268,23 +278,27 @@ fn choice_card(
                         .size(theme::FONT_SMALL)
                         .color(theme::faint()),
                 );
-            })
-            .response;
-
-        // The whole card is the target, not a button tucked inside it.
-        let hit = ui.interact(
-            response.rect,
-            ui.id().with(title),
-            if enabled {
-                egui::Sense::click()
-            } else {
-                egui::Sense::hover()
-            },
-        );
-        if enabled && hit.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        clicked = hit.clicked();
+            });
+            ui.add_space(10.0);
+            // Justified, so the button spans the card and is the obvious
+            // thing in it.
+            ui.allocate_ui_with_layout(
+                egui::vec2(inner, 38.0),
+                egui::Layout::top_down_justified(egui::Align::Center),
+                |ui| {
+                    let response = if recommended {
+                        theme::primary(ui, title, enabled)
+                    } else {
+                        ui.add_enabled_ui(enabled, |ui| theme::secondary(ui, title))
+                            .inner
+                    };
+                    if enabled && response.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    }
+                    clicked = response.clicked();
+                },
+            );
+        });
     });
     clicked
 }

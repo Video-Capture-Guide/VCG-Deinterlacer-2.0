@@ -451,6 +451,26 @@ pub fn queue_page(ui: &mut egui::Ui, app: &App) -> Option<QueueAction> {
     });
     ui.add_space(18.0);
 
+    // What just happened, in so many words. The notice was set on every
+    // queue action but drawn nowhere, so pressing Add to queue changed the
+    // screen without saying why.
+    if let Some(notice) = &app.queue_notice {
+        let failed = notice.contains("could not");
+        egui::Frame::NONE
+            .fill(if failed { theme::fix_soft() } else { theme::ok_soft() })
+            .corner_radius(theme::RADIUS_SMALL)
+            .inner_margin(egui::Margin::symmetric(14, 10))
+            .show(ui, |ui| {
+                ui.set_width(width - 28.0);
+                ui.label(
+                    RichText::new(notice)
+                        .size(theme::FONT_BODY)
+                        .color(if failed { theme::fix() } else { theme::text() }),
+                );
+            });
+        ui.add_space(14.0);
+    }
+
     let t = totals(app);
     if let Some(a) = summary_card(ui, app, &t, width) {
         action = Some(a);
