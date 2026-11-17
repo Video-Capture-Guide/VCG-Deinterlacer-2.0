@@ -1351,6 +1351,9 @@ fn a_measured_projector_speed_is_what_the_film_is_rebuilt_at() {
         home_movie: true,
         home_movie_rate: FilmRate::Fps18,
         home_movie_fps: Some(18.6583),
+        // The clock that keeps the tape's length, so the rate written is
+        // the rate rebuilt at.
+        home_movie_output: vcg_core::config::FilmOutput::Measured,
         ..Config::default()
     };
     let s = script(&config);
@@ -1387,6 +1390,7 @@ fn the_rebuilt_film_can_be_written_on_three_clocks() {
         home_movie: true,
         home_movie_rate: FilmRate::Fps18,
         home_movie_fps: Some(18.61),
+        home_movie_output: FilmOutput::Measured,
         ..Config::default()
     };
 

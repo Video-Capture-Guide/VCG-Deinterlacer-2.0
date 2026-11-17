@@ -84,6 +84,27 @@ pub fn settings_page(ui: &mut egui::Ui, app: &mut App, step: Step) -> Option<Pag
     theme::page_header(ui, page.title, page.lead);
     ui.add_space(20.0);
 
+    // Dust removal compares each film frame with the next. Rebuilt at a speed
+    // other than the one the reel ran at, some film frames are shown twice;
+    // a speck on two frames running is kept as picture, and on a tape rebuilt
+    // at 24 instead of 18.61 the filter did half its work.
+    if step == Step::FilmDirt
+        && let Some(note) = film_speed_warning(app)
+    {
+        egui::Frame::NONE
+            .fill(theme::fix_soft())
+            .corner_radius(theme::RADIUS_SMALL)
+            .inner_margin(egui::Margin::symmetric(14, 10))
+            .show(ui, |ui| {
+                ui.set_width(COLUMN - 28.0);
+                theme::paragraph(
+                    ui,
+                    RichText::new(note).size(theme::FONT_SMALL).color(theme::fix()),
+                );
+            });
+        ui.add_space(16.0);
+    }
+
     let inner_w = COLUMN - 34.0;
 
     let inner = COLUMN - 34.0;
@@ -833,6 +854,27 @@ pub struct Analysis {
     /// the bucket came from, and the second is what lets someone disagree.
     measurement: String,
     recommendation: String,
+}
+
+/// Why dust removal will not work well on this tape as it is set up, if it
+/// will not.
+///
+/// When the film is rebuilt at a speed well away from the one the scan
+/// measured: a projector-speed chip picked by hand, or an exact speed typed
+/// in. Small differences are not worth a warning — a frame shown twice
+/// every minute costs one speck — so the line is at 2%.
+fn film_speed_warning(app: &App) -> Option<String> {
+    let measured = app.config.home_movie_fps?;
+    let used = app.config.film_fps();
+    if ((used - measured) / measured).abs() < 0.02 {
+        return None;
+    }
+    Some(format!(
+        "This reel was measured at {measured:.2} fps but is set to be rebuilt at \
+         {used:.2}. At that speed some film frames are shown twice, and a speck that \
+         appears on two frames in a row looks like part of the picture, so most of it \
+         stays. Set the projector speed back to the measured one on the Check video page."
+    ))
 }
 
 fn analysis_for(app: &App, step: Step) -> Option<Analysis> {

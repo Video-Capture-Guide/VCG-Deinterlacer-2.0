@@ -585,6 +585,34 @@ fn telecine_choice(ui: &mut egui::Ui, app: &mut App, report: &Report) -> bool {
                             }
                         }
                     });
+                    // Next to the chips, not at the bottom of the card. A
+                    // speed chosen by accident is easy to miss and costly:
+                    // at the wrong speed film frames are shown twice, and
+                    // dust removal, which needs each one once, half works.
+                    if let Some(scanned) = found.and_then(|d| d.rate)
+                        && scanned != rate
+                    {
+                        ui.add_space(8.0);
+                        ui.horizontal_wrapped(|ui| {
+                            ui.spacing_mut().item_spacing.x = 6.0;
+                            ui.label(
+                                RichText::new(format!(
+                                    "Set by hand. The scan measured this reel at {} fps. \
+                                     At the wrong speed some film frames are shown twice \
+                                     and others dropped, and Film dirt cannot work properly.",
+                                    app.config
+                                        .home_movie_fps
+                                        .map(|f| format!("{f:.2}"))
+                                        .unwrap_or_else(|| scanned.fps().to_string())
+                                ))
+                                .size(theme::FONT_SMALL)
+                                .color(theme::fix()),
+                            );
+                            if theme::link(ui, "Use the measured speed").clicked() {
+                                app.set_scan(ScanType::HomeMovie, scanned, found);
+                            }
+                        });
+                    }
                     ui.add_space(8.0);
                     theme::paragraph(ui, RichText::new(
                                 "A Regular 8 reel run at 18 plays 12% fast; slow the finished file in an editor rather than choosing 16, which would drop real frames.",
@@ -885,32 +913,69 @@ fn film_output_choice(ui: &mut egui::Ui, app: &mut App, pal: bool) {
     }
     let current = app.config.home_movie_output;
 
+    // Recommended by what kind of film it is, not by what is archivally
+    // purest: silent film plays naturally at the speed it was shot, and its
+    // length was never promised to anyone. When there is nothing to conform
+    // (the projector ran at exactly its marked speed) the two are the same.
+    let recommended = match app.config.home_movie_rate.recommended_output() {
+        FilmOutput::Conform if !off_nominal => FilmOutput::Measured,
+        r => r,
+    };
+    let mark = |o: FilmOutput, text: String| {
+        if o == recommended { format!("{text} (Recommended)") } else { text }
+    };
+
     ui.label(
         RichText::new("Frame rate of the finished file")
             .size(theme::FONT_BODY)
             .color(theme::text()),
     );
     ui.add_space(6.0);
+    theme::paragraph(
+        ui,
+        RichText::new(if off_nominal {
+            "Most 8 mm and Super 8 film is silent. For silent film choose the true speed: \
+             it plays at the speed it was filmed, so movement looks natural. The file comes \
+             out a little longer or shorter than the tape, and any sound on the tape is \
+             stretched to stay in step. If the film has its own sound, or the sound on the \
+             tape must stay exactly as it is, keep the tape's length instead."
+        } else {
+            "The projector ran at exactly its marked speed, so the film already plays at the \
+             speed it was filmed."
+        })
+        .size(theme::FONT_SMALL)
+        .color(theme::muted()),
+    );
+    ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
-        if theme::chip_button(
-            ui,
-            &format!("{film} fps (Recommended)"),
-            current == FilmOutput::Measured,
-        ) {
-            app.config.home_movie_output = FilmOutput::Measured;
-        }
-        if theme::chip_button(ui, &format!("{video} fps"), current == FilmOutput::Video) {
-            app.config.home_movie_output = FilmOutput::Video;
-        }
         if off_nominal
             && theme::chip_button(
                 ui,
-                &format!("{nominal} fps — true speed"),
+                &mark(FilmOutput::Conform, format!("{nominal} fps — true speed")),
                 current == FilmOutput::Conform,
             )
         {
             app.config.home_movie_output = FilmOutput::Conform;
+        }
+        let same_length = if off_nominal {
+            format!("{film} fps — same length as the tape")
+        } else {
+            format!("{film} fps")
+        };
+        if theme::chip_button(
+            ui,
+            &mark(FilmOutput::Measured, same_length),
+            current == FilmOutput::Measured,
+        ) {
+            app.config.home_movie_output = FilmOutput::Measured;
+        }
+        if theme::chip_button(
+            ui,
+            &format!("{video} fps — for an editing timeline"),
+            current == FilmOutput::Video,
+        ) {
+            app.config.home_movie_output = FilmOutput::Video;
         }
     });
     ui.add_space(8.0);
@@ -927,21 +992,19 @@ fn film_output_choice(ui: &mut egui::Ui, app: &mut App, pal: bool) {
              editing timeline. The file is larger."
         ),
         FilmOutput::Conform => format!(
-            "The same film frames at exactly {nominal} fps, the speed the film was shot at. \
-             The picture runs {:.1}% {} than the tape, so the finished file is {} and the \
-             sound is stretched to match. Choose this only if the tape has no sound worth \
-             keeping, or you are happy for it to be {}.",
+            "Every film frame once, at exactly {nominal} fps — the speed the film was shot at. \
+             The projector ran {:.1}% {}, so this file is {:.1}% {} than the tape and the \
+             sound is {} by the same amount to stay in step.",
             (stretch - 1.0).abs() * 100.0,
-            if stretch >= 1.0 { "slower" } else { "faster" },
+            if stretch >= 1.0 { "fast" } else { "slow" },
+            (stretch - 1.0).abs() * 100.0,
             if stretch >= 1.0 { "longer" } else { "shorter" },
             if stretch >= 1.0 { "slowed" } else { "sped up" },
         ),
     };
     theme::paragraph(
         ui,
-        RichText::new(text).size(theme::FONT_SMALL).color(
-            if current == FilmOutput::Conform { theme::text() } else { theme::muted() },
-        ),
+        RichText::new(text).size(theme::FONT_SMALL).color(theme::muted()),
     );
 }
 

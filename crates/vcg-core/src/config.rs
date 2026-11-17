@@ -290,6 +290,20 @@ impl FilmRate {
             .map(|(r, _)| r)
     }
 
+    /// Which clock suits film shot at this speed.
+    ///
+    /// 16 and 18 are silent-film speeds: whatever sound is on the tape was
+    /// added later, so playing the film at the speed it was shot at matters
+    /// more than keeping the tape's length. 24 is sound film, where the
+    /// sound was recorded against the film as it ran and keeping that
+    /// running time keeps it natural.
+    pub fn recommended_output(self) -> FilmOutput {
+        match self {
+            Self::Fps16 | Self::Fps18 => FilmOutput::Conform,
+            Self::Fps24 => FilmOutput::Measured,
+        }
+    }
+
     /// What the Check page calls it.
     pub fn label(self) -> &'static str {
         match self {
@@ -309,8 +323,8 @@ impl FilmRate {
 pub enum FilmOutput {
     /// One frame per film frame at the speed the projector ran at — 18.61
     /// fps, say. Nothing repeated, same running time as the tape, sound in
-    /// step. The archival answer, and the default.
-    #[default]
+    /// step. The answer for sound film, where the sound was recorded at the
+    /// speed the film actually ran.
     Measured,
     /// The same frames at the tape's own video rate (29.97 or 25), each
     /// shown for one or two video frames. Same running time, sound in step,
@@ -320,6 +334,11 @@ pub enum FilmOutput {
     /// picture then runs at the speed the film was shot at rather than the
     /// speed the projector happened to turn at, so the running time changes
     /// by a few percent and the sound is stretched to match.
+    ///
+    /// The default, because most 8 mm and Super 8 is silent: motion looks
+    /// right at the speed it was filmed, and the length of the file is not
+    /// something anyone was promised. See `FilmRate::recommended_output`.
+    #[default]
     Conform,
 }
 
@@ -674,7 +693,7 @@ impl Default for Config {
             home_movie_rate: FilmRate::Fps18,
             home_movie_fps: None,
             home_movie_fps_override: None,
-            home_movie_output: FilmOutput::Measured,
+            home_movie_output: FilmOutput::Conform,
             ivtc_user_override: false,
 
             trim_ranges: Vec::new(),

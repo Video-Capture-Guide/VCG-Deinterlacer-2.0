@@ -947,6 +947,27 @@ fn a_home_movie_is_set_in_every_mode_with_its_measured_speed() {
     }
 }
 
+/// A settings file saved with a projector speed chosen by hand must not
+/// carry that speed onto a reel the scan measured at another one.
+#[test]
+fn a_loaded_preset_does_not_carry_a_hand_picked_projector_speed() {
+    use vcg_core::config::FilmOutput;
+    use vcg_tools::apply::restore_source_facts;
+    let mut config = Config {
+        home_movie: true,
+        home_movie_rate: FilmRate::Fps24,
+        home_movie_output: FilmOutput::Measured,
+        ivtc_user_override: true,
+        ..Config::default()
+    };
+    restore_source_facts(&mut config, &home_movie_report());
+    assert_eq!(config.home_movie_rate, FilmRate::Fps18);
+    assert!(!config.ivtc_user_override);
+    assert_eq!(config.film_fps(), 18.5);
+    // Silent-film speed, so the film is written at the speed it was shot.
+    assert_eq!(config.home_movie_output, FilmOutput::Conform);
+}
+
 #[test]
 fn the_measured_speed_is_this_tapes_and_no_other() {
     // Carried in from another tape's settings file, then analysed on a tape

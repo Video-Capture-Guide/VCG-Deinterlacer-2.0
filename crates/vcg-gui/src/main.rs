@@ -697,6 +697,10 @@ impl App {
         // typed under; choosing another starts again from that one.
         if self.config.home_movie_rate != rate {
             self.config.home_movie_fps_override = None;
+            // Silent film and sound film want different clocks; moving
+            // between them moves the clock too. Changing the clock itself
+            // is left alone.
+            self.config.home_movie_output = rate.recommended_output();
         }
         self.config.home_movie_rate = rate;
         self.config.ivtc_user_override = match detected {

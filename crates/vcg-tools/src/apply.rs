@@ -354,9 +354,23 @@ pub fn restore_source_facts(config: &mut Config, report: &Report) {
         config.crop_bottom,
         config.head_switching_rows,
     );
+    // A hand-made answer to "what kind of recording is this" — film or
+    // video, and for film the projector speed — was given about the tape
+    // the preset came from. Kept, it outranks this tape's own scan: a
+    // preset saved with 24 fps chosen rebuilt an 18.61 fps reel at 24,
+    // showing a quarter of the film frames twice, and dust removal, which
+    // needs each film frame once, did half its work.
+    config.ivtc_user_override = false;
     apply_structural(config, report);
     // A projector speed typed in by hand was typed in for another tape.
     config.home_movie_fps_override = None;
+    // And the clock that suits it follows the speed this tape was found at.
+    if let Some(found) = detected_scan(report)
+        && found.scan == ScanType::HomeMovie
+        && let Some(rate) = found.rate
+    {
+        config.home_movie_output = rate.recommended_output();
+    }
     (
         config.crop_preset,
         config.crop_left,
