@@ -1590,7 +1590,7 @@ fn dehalo(s: &mut Script, config: &Config) {
     s.push("    y = core.std.ShufflePlanes(src, planes=0, colorfamily=vs.GRAY)");
     s.push("    ox, oy = y.width, y.height");
     s.push("    # --- DeHalo_alpha: blur-and-repair, masked to halo-prone zones ---");
-    s.push("    halos = core.resize.Bicubic(y, _m4(ox / rx), _m4(oy / rx))");
+    s.push("    halos = core.resize.Bicubic(y, _m4(ox / rx), _m4(oy / rx), filter_param_a=1/3, filter_param_b=1/3)");
     s.push("    halos = core.resize.Bicubic(halos, ox, oy, filter_param_a=1, filter_param_b=0)");
     s.push("    are  = core.std.Expr([core.std.Maximum(y), core.std.Minimum(y)], 'x y -')");
     s.push("    ugly = core.std.Expr([core.std.Maximum(halos), core.std.Minimum(halos)], 'x y -')");
@@ -1610,17 +1610,24 @@ fn dehalo(s: &mut Script, config: &Config) {
     s.push("    shrink = haf.mt_inpand_multi(shrink, mode='ellipse', sw=2, sh=2)");
     s.push("    shrink = core.std.Convolution(shrink, matrix=[1] * 9)");
     s.push("    shrink = core.std.Convolution(shrink, matrix=[1] * 9)");
-    s.push("    outside = core.std.Expr([large, shrink], 'x y max')");
+    // FineDehalo's halo zone is the band around a strong edge: the grown
+    // edge mask *minus* the edge itself and any area of fine detail. The
+    // port had `max` here instead of a subtraction, which pointed the repair
+    // at the edges and the texture and left the band beside them alone —
+    // measured on a MiniDV tape, halos were not reduced at all and shingle
+    // texture on a roof went soft.
+    s.push("    protect = core.std.Expr([strong, shrink], 'x y max')");
+    s.push("    outside = core.std.Expr([large, protect], 'x y -')");
     s.push("    outside = core.std.Expr(core.std.Convolution(outside, matrix=[1] * 9), 'x 2 *')");
     s.push("    y_out = core.std.MaskedMerge(y, them, outside)");
     s.push("    if src.format.color_family == vs.GRAY:");
     s.push("        return y_out");
     s.push("    return core.std.ShufflePlanes([y_out, src, src], planes=[0, 1, 2], colorfamily=vs.YUV)");
     s.gap();
-    s.push("try:");
-    s.push(format!("    clip = _vcg_fine_dehalo(clip, {params})"));
-    s.push("except Exception:");
-    s.push("    pass  # dehalo prerequisites unavailable — skipping");
+    // Not behind a try. Everything it needs is in the payload, and a filter
+    // that quietly did not run is worse than an export that says why it
+    // failed — the denoise step once ran the wrong plugin for months that way.
+    s.push(format!("clip = _vcg_fine_dehalo(clip, {params})"));
     s.gap();
 }
 

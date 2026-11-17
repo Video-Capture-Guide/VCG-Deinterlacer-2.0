@@ -1468,6 +1468,30 @@ fn the_stage_preview_leaves_srestore_out_so_frame_numbers_still_match() {
     assert!(s.contains("haf.QTGMC("));
 }
 
+/// The dehalo works on the band beside a strong edge, as FineDehalo does:
+/// the grown edge mask minus the edge and any fine detail. The port once
+/// had `max` where the subtraction belongs, which aimed the repair at the
+/// edges and the texture — on a MiniDV tape it softened roof shingles and
+/// left the halo where it was.
+#[test]
+fn dehalo_repairs_beside_the_edge_and_protects_the_edge_and_the_detail() {
+    use vcg_core::config::DehaloMode;
+    for mode in [DehaloMode::Light, DehaloMode::Strong] {
+        let s = script(&Config { dehalo_mode: mode, ..Config::default() });
+        assert!(s.contains("protect = core.std.Expr([strong, shrink], 'x y max')"), "{s}");
+        assert!(s.contains("outside = core.std.Expr([large, protect], 'x y -')"), "{s}");
+        assert!(!s.contains("outside = core.std.Expr([large, shrink], 'x y max')"), "{s}");
+        assert!(pos(&s, "outside = core.std.Expr([large, protect]") < pos(&s, "y_out = core.std.MaskedMerge(y, them, outside)"));
+        // The pre-blur is FineDehalo's own, not zimg's default bicubic.
+        assert!(s.contains("filter_param_a=1/3, filter_param_b=1/3"), "{s}");
+        // And it runs or the export fails: no try around it.
+        let call = pos(&s, "clip = _vcg_fine_dehalo(clip,");
+        assert!(!s[call.saturating_sub(10)..call].contains("try:"), "{s}");
+        assert!(!s.contains("dehalo prerequisites unavailable"), "{s}");
+    }
+    assert!(!script(&Config::default()).contains("_vcg_fine_dehalo"));
+}
+
 /// Dust is taken off the rebuilt film frames, and nowhere else.
 #[test]
 fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
