@@ -613,6 +613,19 @@ pub fn run(request: Request<'_>, progress: Option<Progress<'_>>) -> Result<Outco
         }
     };
 
+    // A frame VapourSynth could not make ends the video there, and nothing
+    // after this notices: ffmpeg is handed a stream that simply stops, writes
+    // what it got, and exits cleanly; the sound is padded to full length, so
+    // the file's duration is right too. An export that failed on frame 0
+    // passed every check below as a minute of black with sound.
+    if let Some(why) = frame_failure(&stderr.producer) {
+        let _ = std::fs::remove_file(&audio_path);
+        return Err(format!(
+            "VapourSynth stopped part way: {why}\nThe file that was written is incomplete.\n{}",
+            stderr.report()
+        ));
+    }
+
     if !output.exists() {
         let _ = std::fs::remove_file(&audio_path);
         return Err(format!(
@@ -697,6 +710,44 @@ fn probe_duration(tools: &ToolPaths, file: &Path) -> Option<f64> {
     )
     .ok()?;
     out.stdout.trim().parse().ok()
+}
+
+/// vspipe's report of a frame it could not make, if it made one.
+///
+/// vspipe exits on the first such frame and prints this line; the frames
+/// before it have already gone down the pipe.
+fn frame_failure(producer_stderr: &str) -> Option<String> {
+    producer_stderr
+        .lines()
+        .map(str::trim)
+        .find(|l| l.contains("Failed to retrieve frame"))
+        .map(|l| l.trim_start_matches("Error:").trim().to_string())
+}
+
+#[cfg(test)]
+mod frame_failure_tests {
+    use super::frame_failure;
+
+    /// The line from the export that came out black: an odd-width resize in
+    /// the dust filter failed on the first frame.
+    #[test]
+    fn a_frame_vapoursynth_could_not_make_is_a_failure() {
+        let stderr = "Warning: Plugin x.dll is using API3\n\n\
+            Error: Failed to retrieve frame 0 with error: Resize error 1027: \
+            image dimensions must be divisible by subsampling factor\n\
+            Output 28 frames in 1.69 seconds (16.54 fps)\n";
+        let why = frame_failure(stderr).expect("a failure");
+        assert!(why.starts_with("Failed to retrieve frame 0"), "{why}");
+        assert!(why.contains("divisible by subsampling factor"), "{why}");
+    }
+
+    #[test]
+    fn a_clean_render_is_not() {
+        let stderr = "Warning: Plugin x.dll is using API3\n\
+            Critical: Explicitly instantiated a Cache with make_linear set.\n\
+            Output 1108 frames in 65.90 seconds (16.81 fps)\n";
+        assert_eq!(frame_failure(stderr), None);
+    }
 }
 
 /// What each half of the pipe said.

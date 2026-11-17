@@ -239,7 +239,17 @@ fn film_dirt_removal_renders_and_repairs_only_a_little_of_each_frame() {
             .join("vcg-home-movie-test")
             .join(format!("{name}-{}.y4m", std::process::id()));
         std::fs::create_dir_all(file.parent().unwrap()).expect("temp dir");
-        render_into(name, |c| c.film_dirt = dirt, &file.display().to_string())?;
+        // Cropped the way the sample's own measurement crops it, to an
+        // awkward width: uncropped, every size in the filter divides
+        // evenly, and an export that failed on frame 0 passed this test.
+        let tweak = |c: &mut Config| {
+            c.film_dirt = dirt;
+            c.crop_preset = Some(vcg_core::config::CropPreset::Manual);
+            c.crop_left = 8;
+            c.crop_right = 10;
+            c.crop_bottom = 6;
+        };
+        render_into(name, tweak, &file.display().to_string())?;
         let data = std::fs::read(&file).expect("the rendered stream");
         let _ = std::fs::remove_file(&file);
         Some(data)

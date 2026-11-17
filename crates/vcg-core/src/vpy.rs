@@ -1523,7 +1523,8 @@ fn film_dirt(s: &mut Script, config: &Config) {
     s.push("    # from its neighbours by more than the limit across whole areas and gets");
     s.push("    # patches of them pasted in.");
     s.push("    def broad(c):");
-    s.push("        small = core.resize.Bilinear(c, c.width // 16, c.height // 16)");
+    s.push("        # Even sizes: the chroma is subsampled, and a crop can leave any width");
+    s.push("        small = core.resize.Bilinear(c, max(2, c.width // 32 * 2), max(2, c.height // 32 * 2))");
     s.push("        return core.resize.Bicubic(small, c.width, c.height)");
     s.push("    here = broad(src)");
     s.push("    before = core.std.Expr([before, broad(before), here], \"x y - z +\")");

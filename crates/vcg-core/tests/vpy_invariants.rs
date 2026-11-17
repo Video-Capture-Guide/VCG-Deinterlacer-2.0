@@ -1510,6 +1510,10 @@ fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
     // of its neighbours pasted over a wall.
     assert!(pos(&s, "here = broad(src)") < pos(&s, "core.rgvs.Clense("), "{s}");
     assert!(s.contains("before = core.std.Expr([before, broad(before), here], \"x y - z +\")"));
+    // Shrunk to even sizes only. A crop to 702 wide made this 43, which
+    // 4:2:2 cannot hold, and the export came out with no frames at all.
+    assert!(s.contains("c.width // 32 * 2"), "{s}");
+    assert!(!s.contains("c.width // 16"), "{s}");
     assert!(s.contains("after = core.std.Expr([after, broad(after), here], \"x y - z +\")"));
     // Nothing in it is allowed to fail quietly.
     let body = &s[pos(&s, "def _vcg_film_dirt(")..pos(&s, "clip = _vcg_film_dirt(")];
