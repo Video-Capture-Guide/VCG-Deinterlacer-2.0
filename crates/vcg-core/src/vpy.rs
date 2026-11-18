@@ -167,13 +167,29 @@ pub fn qtgmc_profile() -> Vec<(&'static str, &'static str, &'static str)> {
 #[derive(Debug, Clone)]
 pub struct DepsPaths {
     pub vs_deps_dir: PathBuf,
+    /// Where the source indexer may keep its index of this file, so the next
+    /// script opens it without reading the whole file again. `None` indexes
+    /// from scratch every time, which is what an export does.
+    pub index_cache: Option<PathBuf>,
 }
 
 impl DepsPaths {
     pub fn new(vs_deps_dir: impl Into<PathBuf>) -> Self {
         Self {
             vs_deps_dir: vs_deps_dir.into(),
+            index_cache: None,
         }
+    }
+
+    /// The same, keeping the source index at `file`.
+    ///
+    /// For previews. Every preview is a fresh script, and without this each
+    /// one re-read the whole tape before showing a frame: on an 8.5 GB
+    /// capture that was longer than the preview is allowed to take, so the
+    /// settings pages showed nothing at all.
+    pub fn with_index_cache(mut self, file: impl Into<PathBuf>) -> Self {
+        self.index_cache = Some(file.into());
+        self
     }
 
     /// The plugin directory, preferring `plugins64` over `plugins`.
@@ -283,7 +299,7 @@ pub fn generate_vpy(config: &Config, deps: &DepsPaths) -> String {
 
     header(&mut s);
     plugin_loading(&mut s, config, deps);
-    source_loading(&mut s, config);
+    source_loading(&mut s, config, deps);
     normalize_pixel_format(&mut s, config);
     trim(&mut s, config);
     convert_to_yuv422(&mut s, config);
@@ -508,8 +524,12 @@ fn fps(format: VideoFormat) -> (u32, u32) {
     }
 }
 
-fn source_loading(s: &mut Script, config: &Config) {
+fn source_loading(s: &mut Script, config: &Config, deps: &DepsPaths) {
     let (fpsnum, fpsden) = fps(config.format);
+    let cache = match &deps.index_cache {
+        Some(file) => format!("cache=1, cachefile=r\"{}\"", fwd(file)),
+        None => "cache=0".to_string(),
+    };
 
     // Backslashes are doubled before being embedded, even though every use
     // site is a raw string — so the emitted path contains doubled separators.
@@ -542,7 +562,7 @@ fn source_loading(s: &mut Script, config: &Config) {
     s.gap();
 
     let lsmas = format!(
-        "_try_src(\"lsmas\", lambda: core.lsmas.LWLibavSource(r\"{path}\", stream_index=0, cache=0, fpsnum={fpsnum}, fpsden={fpsden}))"
+        "_try_src(\"lsmas\", lambda: core.lsmas.LWLibavSource(r\"{path}\", stream_index=0, {cache}, fpsnum={fpsnum}, fpsden={fpsden}))"
     );
     let ffms2 = format!(
         "_try_src(\"ffms2\", lambda: core.std.AssumeFPS(core.ffms2.Source(r\"{path}\"), fpsnum={fpsnum}, fpsden={fpsden}))"
@@ -2115,7 +2135,7 @@ fn stage_preview(
 
     header(&mut s);
     plugin_loading(&mut s, config, deps);
-    source_loading(&mut s, config);
+    source_loading(&mut s, config, deps);
     normalize_pixel_format(&mut s, config);
     if let Some(frame) = film_at {
         let reach = FILM_PREVIEW_REACH;
@@ -2216,7 +2236,7 @@ pub fn generate_preview_vpy(config: &Config, deps: &DepsPaths) -> String {
 
     header(&mut s);
     plugin_loading(&mut s, config, deps);
-    source_loading(&mut s, config);
+    source_loading(&mut s, config, deps);
     normalize_pixel_format(&mut s, config);
 
     // QTGMC needs YUV, and the same 16-bit lift the real pipeline uses so the

@@ -1652,3 +1652,23 @@ fn the_film_preview_rebuilds_a_short_stretch_and_shows_one_film_frame() {
     assert!(!s.contains("_vcg_want"), "{s}");
     assert!(!s.contains("srestore"), "{s}");
 }
+
+/// A preview keeps the source index where it was told to, so the next one
+/// opens the tape without reading all of it again; an export indexes from
+/// scratch. Without the saved index, previews of an 8.5 GB capture on a USB
+/// drive ran past their time limit and the settings pages stayed empty.
+#[test]
+fn previews_keep_the_source_index_and_exports_do_not() {
+    use vcg_core::vpy::{generate_stage_preview_vpy, PreviewStage};
+    let config = Config::default();
+    let export = script(&config);
+    assert!(export.contains("stream_index=0, cache=0,"), "{export}");
+    assert!(!export.contains("cachefile"), "{export}");
+
+    let cached = deps().with_index_cache("C:/temp/vcg-preview/index/abc.lwi");
+    let preview = generate_stage_preview_vpy(&config, &cached, PreviewStage::Levels, true);
+    assert!(
+        preview.contains("stream_index=0, cache=1, cachefile=r\"C:/temp/vcg-preview/index/abc.lwi\","),
+        "{preview}"
+    );
+}

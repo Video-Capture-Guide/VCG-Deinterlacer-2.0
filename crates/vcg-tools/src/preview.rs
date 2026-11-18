@@ -35,6 +35,60 @@ use crate::run::{run_piped, run_tool_binary, DEFAULT_TIMEOUT};
 /// neighbors — so it gets considerably longer than a probe.
 const RENDER_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// The first preview of a tape builds its source index, which means reading
+/// the whole file: about two minutes for an 8.5 GB capture on a USB drive,
+/// more while an export is reading the same disk. That one render is
+/// allowed this long; every one after it opens from the saved index.
+const INDEXING_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+
+/// Held while a render is building an index, so two previews never write
+/// the same index file at once — the second waits, then opens it.
+static INDEXING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Where previews keep the source index for `file`.
+///
+/// Named by the file's path, size and modification time, so a tape that is
+/// replaced or re-captured under the same name gets a fresh index rather
+/// than an index of the old one.
+fn index_path(file: &Path) -> Option<std::path::PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let meta = std::fs::metadata(file).ok()?;
+    let mtime = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    file.hash(&mut h);
+    meta.len().hash(&mut h);
+    mtime.hash(&mut h);
+    let dir = std::env::temp_dir().join("vcg-preview").join("index");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir.join(format!("{:016x}.lwi", h.finish())))
+}
+
+/// The deps a preview of `file` renders with, how long it may take, and the
+/// indexing lock if this render is the one that will build the index.
+fn indexed(
+    deps: &DepsPaths,
+    file: &Path,
+) -> (DepsPaths, Duration, Option<std::sync::MutexGuard<'static, ()>>) {
+    let Some(index) = index_path(file) else {
+        return (deps.clone(), RENDER_TIMEOUT, None);
+    };
+    let with = deps.clone().with_index_cache(&index);
+    if index.exists() {
+        return (with, RENDER_TIMEOUT, None);
+    }
+    let guard = INDEXING.lock().unwrap_or_else(|e| e.into_inner());
+    // Another preview may have finished the index while this one waited.
+    if index.exists() {
+        return (with, RENDER_TIMEOUT, None);
+    }
+    (with, INDEXING_TIMEOUT, Some(guard))
+}
+
 /// How many frames to score when looking for motion.
 const CANDIDATES: usize = 9;
 
@@ -343,7 +397,8 @@ fn render_after(
         .ok_or("ffmpeg was not found")?
         .to_path_buf();
 
-    let script = generate_preview_vpy(config, deps);
+    let (deps, timeout, _indexing) = indexed(deps, Path::new(&config.input_path));
+    let script = generate_preview_vpy(config, &deps);
     // A temp file, because vspipe takes a script path rather than stdin.
     let dir = std::env::temp_dir().join("vcg-preview");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -388,7 +443,7 @@ fn render_after(
         "-".to_string(),
     ]);
 
-    let result = run_piped(producer, consumer, RENDER_TIMEOUT);
+    let result = run_piped(producer, consumer, timeout);
 
     let (data, stderr) = match result {
         Ok(v) => v,
@@ -774,6 +829,8 @@ pub fn stage_frame(request: StageRequest<'_>) -> Result<Image, String> {
     config.input_path = file.display().to_string();
 
     let source_frame = (at * info.fps).round().max(0.0) as u64;
+    let (deps, timeout, _indexing) = indexed(deps, file);
+    let deps = &deps;
 
     // A home movie is previewed on a rebuilt film frame, for every stage.
     //
@@ -847,7 +904,7 @@ pub fn stage_frame(request: StageRequest<'_>) -> Result<Image, String> {
         "-".to_string(),
     ]);
 
-    let (data, stderr) = run_piped(producer, consumer, RENDER_TIMEOUT)
+    let (data, stderr) = run_piped(producer, consumer, timeout)
         .map_err(|e| format!("the preview render could not start: {e}"))?;
     let _ = std::fs::remove_file(&script_path);
 
