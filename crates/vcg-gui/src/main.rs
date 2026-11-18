@@ -270,6 +270,20 @@ fn main() -> eframe::Result {
     started
 }
 
+/// What an empty preview picture says while it waits.
+///
+/// Reported from testing: on a large tape the panes stayed gray for minutes
+/// with a line of small print under them, and read as broken. This is drawn
+/// on the picture itself, with a moving bar. The bar does not pretend to a
+/// percentage — one frame is being made, and the indexer reports nothing —
+/// it says the work is alive, and the words say what the work is.
+pub struct PreviewWait {
+    pub headline: String,
+    pub detail: String,
+    /// Rendering now, rather than queued behind the other half.
+    pub running: bool,
+}
+
 /// Changes a page requests while it is being drawn.
 ///
 /// Drawing takes `&App` in places — a card is rendered from immutable state —
@@ -1119,36 +1133,43 @@ impl App {
     /// much longer than a two-minute one. Saying so is more use than a bar
     /// with nothing behind it, and it stops the first long wait reading as a
     /// hang.
-    pub fn preview_progress_for(&self, tag: &str) -> Option<String> {
+    pub fn preview_progress_for(&self, tag: &str) -> Option<PreviewWait> {
         if self.previews.contains_key(tag) {
             return None;
         }
         let job = self.setting_preview_job.as_ref()?;
-        if job.tag != tag || job.finished {
+        if job.finished {
             return None;
         }
+        if job.tag != tag {
+            // Only one render runs at a time; this half is next.
+            return Some(PreviewWait {
+                headline: "Next in line".to_string(),
+                detail: "The other picture is being made first. This one follows it.".to_string(),
+                running: false,
+            });
+        }
         let secs = job.started.elapsed().as_secs();
-        let long = self
-            .report
-            .as_ref()
-            .or(self.file_info.as_ref())
-            .and_then(|r| r.info)
-            .is_some_and(|i| i.duration > 600.0);
-
-        Some(match secs {
-            0..=3 => "Rendering this frame…".to_string(),
-            4..=14 if long => format!(
-                "Reading the video… {secs}s. A long recording has to be indexed \
-                 before any moment in it can be reached."
-            ),
-            4..=14 => format!("Rendering this frame… {secs}s."),
-            _ => format!(
-                "Still working… {}m {:02}s. Deinterlacing one frame means looking \
-                 at the frames either side of it, and the first one also has to \
-                 index the file.",
-                secs / 60,
-                secs % 60
-            ),
+        let clock = format!("{}:{:02}", secs / 60, secs % 60);
+        Some(if job.indexing {
+            PreviewWait {
+                headline: format!("Reading the whole video once — {clock}"),
+                detail: "The first preview of a video indexes all of it, so that any \
+                         moment can be reached. A large capture takes a few minutes, and \
+                         longer while an export is reading the same drive. Every preview \
+                         after this one takes seconds."
+                    .to_string(),
+                running: true,
+            }
+        } else {
+            PreviewWait {
+                headline: format!("Making this picture — {clock}"),
+                detail: "Every filter you have chosen is applied, so this is the finished \
+                         video at this moment. Usually under 20 seconds; noise reduction \
+                         makes it slower."
+                    .to_string(),
+                running: true,
+            }
         })
     }
 
@@ -1181,17 +1202,40 @@ impl App {
     /// Only one render runs at a time, and the untouched half is asked for
     /// first: it is shared by every strength, so it is the one worth having
     /// cached before the user starts clicking through them.
+    /// The cache tags of a page's before and after halves.
+    ///
+    /// Each is a hash of the very script that renders it, plus the moment.
+    /// Every preview now carries every chosen filter, so a change on any
+    /// page can alter any picture; keying by the script means exactly the
+    /// pictures that changed are rendered again, and pictures that are the
+    /// same are shared — the after half, everything on, is one picture for
+    /// every page, and a page whose own setting does nothing has a before
+    /// and after that are the same tag.
+    pub fn stage_tags(&self, stage: vcg_core::vpy::PreviewStage) -> (String, String) {
+        use std::hash::{Hash, Hasher};
+        let m = self.moment_key();
+        let mut config = self.config.clone();
+        if let Some(file) = &self.file {
+            config.input_path = file.display().to_string();
+        }
+        let deps = vcg_core::vpy::DepsPaths::new(
+            self.tools.vs_deps_dir.clone().unwrap_or_default(),
+        );
+        let tag = |apply: bool| {
+            let script =
+                vcg_core::vpy::generate_film_stage_preview_vpy(&config, &deps, stage, apply, 0);
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            script.hash(&mut h);
+            format!("stage-{:016x}{m}", h.finish())
+        };
+        (tag(false), tag(true))
+    }
+
     pub fn request_stage_pair(
         &mut self,
         stage: vcg_core::vpy::PreviewStage,
-        strength: &str,
     ) -> (String, String) {
-        let m = self.moment_key();
-        // One untouched half for every page: with no stage applied the
-        // script is the same whichever stage asked for it, so rendering it
-        // per page would be the same picture computed five times.
-        let before = format!("stage-base{m}");
-        let after = format!("stage-{}-on-{strength}{m}", stage.id());
+        let (before, after) = self.stage_tags(stage);
         if self.scrubbing {
             return (before, after);
         }
@@ -2226,14 +2270,14 @@ impl eframe::App for App {
                         egui::ColorImage::from_rgb([img.width, img.height], &img.rgb);
                     // Bounded: a slider dragged through its range would
                     // otherwise hold a texture for every value it passed.
-                    if self.previews.len() > 16 {
+                    if self.previews.len() > 32 {
                         self.previews.clear();
                     }
                     self.previews.insert(
                         job.tag.clone(),
                         ctx.load_texture(&job.tag, image, egui::TextureOptions::LINEAR),
                     );
-                    if self.preview_pixels.len() > 16 {
+                    if self.preview_pixels.len() > 32 {
                         self.preview_pixels.clear();
                     }
                     self.preview_pixels.insert(job.tag.clone(), *img);

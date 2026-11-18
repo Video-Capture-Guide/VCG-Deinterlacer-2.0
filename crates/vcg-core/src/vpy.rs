@@ -2070,14 +2070,16 @@ fn preview_dither(s: &mut Script, config: &Config) {
     s.gap();
 }
 
-/// A script that renders one frame with exactly one filter stage applied, or
-/// with none.
+/// A script that renders one frame with every chosen filter applied, the
+/// page's own `stage` only when `apply` is set.
 ///
 /// Both halves of a before/after go through the identical pipeline and differ
-/// only in whether `apply` is set, so the difference on screen is the filter
-/// and nothing else. That matters more than matching the full export exactly:
-/// the question the page asks is "what does this setting do", and every other
-/// stage in the chain would only add noise to the answer.
+/// only in `apply`, so the difference on screen is still the one filter. It
+/// used to apply that filter alone to an untouched frame, which answered
+/// "what does this do to the capture" when the reader is choosing what it
+/// does to *their* video: the dehalo was judged without the denoise in front
+/// of it, the levels without the colour fix. Now the after half is the
+/// finished video at that moment, as Hybrid shows it.
 pub fn generate_stage_preview_vpy(
     config: &Config,
     deps: &DepsPaths,
@@ -2184,23 +2186,41 @@ fn stage_preview(
         deinterlace(&mut s, &bobbed);
     }
 
-    if apply {
-        match stage {
-            PreviewStage::Levels => levels(&mut s, config),
-            PreviewStage::ColorTint => color_correction(&mut s, config),
-            PreviewStage::Noise => denoise(&mut s, config),
-            // On film frames or not at all: among bobbed fields a speck is
-            // in three or four frames running and would be kept as picture,
-            // so the preview would show the filter doing nothing.
-            PreviewStage::FilmDirt => {
-                if film_at.is_some() {
-                    film_dirt(&mut s, config)
-                }
-            }
-            PreviewStage::Halos => dehalo(&mut s, config),
-            PreviewStage::FilmGrain => grain(&mut s, config),
-            PreviewStage::Dither => preview_dither(&mut s, config),
-        }
+    // Every filter that is switched on, in the order the export runs them —
+    // the page's own one only when `apply` says so. The after half is then
+    // the finished video at this moment, and the before half is the same
+    // with just this page's filter left out: the difference between them is
+    // still the one filter, but judged on top of everything else that was
+    // chosen, as the export will apply it.
+    let on = |this: PreviewStage| this != stage || apply;
+    yc_delay(&mut s, config);
+    // On film frames or not at all: among bobbed fields a speck is in three
+    // or four frames running and would be kept as picture, so the preview
+    // would show the filter doing nothing.
+    if film_at.is_some() && on(PreviewStage::FilmDirt) {
+        film_dirt(&mut s, config);
+    }
+    if on(PreviewStage::Noise) {
+        denoise(&mut s, config);
+    }
+    if on(PreviewStage::Halos) {
+        dehalo(&mut s, config);
+    }
+    legacy_chroma_shift(&mut s, config);
+    dropout_removal(&mut s, config);
+    if on(PreviewStage::ColorTint) {
+        color_correction(&mut s, config);
+    }
+    if on(PreviewStage::Levels) {
+        levels(&mut s, config);
+    }
+    if on(PreviewStage::FilmGrain) {
+        grain(&mut s, config);
+    }
+    // Only on its own page: it changes nothing a reader of any other page
+    // could see, and it would put a depth change in front of every scope.
+    if stage == PreviewStage::Dither && apply {
+        preview_dither(&mut s, config);
     }
 
     // y4m carries only YUV or Gray, so the RGB conversion happens downstream

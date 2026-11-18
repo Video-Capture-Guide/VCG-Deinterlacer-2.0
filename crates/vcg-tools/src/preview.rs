@@ -68,6 +68,12 @@ fn index_path(file: &Path) -> Option<std::path::PathBuf> {
     Some(dir.join(format!("{:016x}.lwi", h.finish())))
 }
 
+/// Whether previews of `file` already have a saved index — if not, the next
+/// one starts by reading the whole file, and the wait says so.
+pub fn has_index(file: &Path) -> bool {
+    index_path(file).is_some_and(|p| p.exists())
+}
+
 /// The deps a preview of `file` renders with, how long it may take, and the
 /// indexing lock if this render is the one that will build the index.
 fn indexed(

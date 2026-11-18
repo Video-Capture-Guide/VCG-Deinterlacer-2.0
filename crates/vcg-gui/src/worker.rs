@@ -564,6 +564,10 @@ pub struct SettingPreviewJob {
     /// with that explanation is honest; a progress bar with nothing behind it
     /// would not be.
     pub started: std::time::Instant,
+    /// Whether this render starts by indexing the whole file, because no
+    /// preview of it has been made before. That is the long wait, and the
+    /// page says so rather than leaving it to look like a hang.
+    pub indexing: bool,
 }
 
 /// What to render.
@@ -594,6 +598,8 @@ impl SettingPreviewJob {
         let (tx, rx) = mpsc::channel();
         let thread_file = file.clone();
         let started = std::time::Instant::now();
+        let indexing = matches!(kind, PreviewKind::Stage { .. })
+            && !vcg_tools::preview::has_index(&file);
 
         std::thread::spawn(move || {
             let result = match kind {
@@ -641,6 +647,7 @@ impl SettingPreviewJob {
             tag,
             finished: false,
             started,
+            indexing,
         }
     }
 

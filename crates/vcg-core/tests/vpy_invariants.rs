@@ -1672,3 +1672,38 @@ fn previews_keep_the_source_index_and_exports_do_not() {
         "{preview}"
     );
 }
+
+/// A settings preview carries every chosen filter, in export order; the
+/// page's own one is the only thing `apply` changes. It used to apply the
+/// one filter to an untouched frame, so the Halos page judged the dehalo
+/// without the denoise in front of it.
+#[test]
+fn stage_previews_carry_every_chosen_filter_and_differ_only_in_their_own() {
+    use vcg_core::config::{DehaloMode, NoiseLevel};
+    use vcg_core::vpy::{generate_stage_preview_vpy, PreviewStage};
+    let config = Config {
+        noise_level: NoiseLevel::Moderate,
+        dehalo_mode: DehaloMode::Light,
+        grain_strength: 2.0,
+        ..Config::default()
+    };
+    let halos_off = generate_stage_preview_vpy(&config, &deps(), PreviewStage::Halos, false);
+    let halos_on = generate_stage_preview_vpy(&config, &deps(), PreviewStage::Halos, true);
+    // The other filters are in both halves.
+    for s in [&halos_off, &halos_on] {
+        assert!(s.contains("bm3d") || s.contains("BM3D"), "{s}");
+        assert!(s.contains("grain.Add"), "{s}");
+    }
+    // Only the page's own filter differs.
+    assert!(!halos_off.contains("clip = _vcg_fine_dehalo("), "{halos_off}");
+    assert!(halos_on.contains("clip = _vcg_fine_dehalo("), "{halos_on}");
+    // In the export's order: denoise, then dehalo, then grain.
+    let denoise_at = halos_on.find("bm3d").or_else(|| halos_on.find("BM3D")).unwrap();
+    let dehalo_at = halos_on.find("clip = _vcg_fine_dehalo(").unwrap();
+    let grain_at = halos_on.find("grain.Add").unwrap();
+    assert!(denoise_at < dehalo_at && dehalo_at < grain_at, "{halos_on}");
+
+    // Everything on is the same picture whichever page asked for it.
+    let noise_on = generate_stage_preview_vpy(&config, &deps(), PreviewStage::Noise, true);
+    assert_eq!(noise_on, halos_on);
+}

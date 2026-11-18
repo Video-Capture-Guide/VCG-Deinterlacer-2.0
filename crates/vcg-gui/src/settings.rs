@@ -198,8 +198,9 @@ fn graph_section(
         // they agree, and the aggregate earns no space: the recommendation
         // rests on it and says so in words below, while the thing a reader
         // can act on is the frame they are looking at.
+        let (tag, after_tag) = app.stage_tags(vcg_core::vpy::PreviewStage::Levels);
         let moment = app
-            .preview_rgb_for(&format!("stage-base{}", app.moment_key()))
+            .preview_rgb_for(&tag)
             .map(|f| LumaHistogram::from_rgb(&f.rgb, f.width, f.height));
         if let Some(m) = &moment
             && !m.is_empty()
@@ -212,8 +213,6 @@ fn graph_section(
             // does, and a before with no after cannot answer it.
             let current = (page.get)(&app.config);
             if !is_no_op(Step::Levels, current) {
-                let after_tag =
-                    format!("stage-levels-on-{current}{}", app.moment_key());
                 if let Some(after) = app
                     .preview_rgb_for(&after_tag)
                     .map(|f| LumaHistogram::from_rgb(&f.rgb, f.width, f.height))
@@ -233,7 +232,6 @@ fn graph_section(
         // And the parade, which says *where* across the frame a channel
         // runs out of room — a blown window on one side of the picture
         // wants a different answer from an overexposed whole frame.
-        let tag = format!("stage-base{}", app.moment_key());
         let current = (page.get)(&app.config);
         theme::card().show(ui, |ui| {
             ui.set_width(inner_w);
@@ -251,7 +249,6 @@ fn graph_section(
             if is_no_op(Step::Levels, current) {
                 parade_panel(ui, app, &tag, inner_w);
             } else {
-                let after_tag = format!("stage-levels-on-{current}{}", app.moment_key());
                 for (t, caption) in [
                     (&tag, "Before".to_string()),
                     (&after_tag, format!("After — {}", levels_label(current))),
@@ -273,7 +270,7 @@ fn graph_section(
     }
 
     if step == Step::ColorTint {
-        let tag = format!("stage-base{}", app.moment_key());
+        let (tag, after_tag) = app.stage_tags(vcg_core::vpy::PreviewStage::ColorTint);
         theme::card().show(ui, |ui| {
             ui.set_width(inner_w);
             ui.horizontal(|ui| {
@@ -320,10 +317,6 @@ fn graph_section(
             // color — and a cast is far easier to see as two clouds than
             // as one you have to remember.
             let current = (page.get)(&app.config);
-            let after_tag = format!(
-                "stage-tint-on-{current}{}",
-                app.moment_key()
-            );
             if is_no_op(Step::ColorTint, current) {
                 scope_panel(ui, app, &tag, kind, inner_w);
             } else {
@@ -625,11 +618,9 @@ fn is_no_op(step: Step, current: usize) -> bool {
 
 /// A before/after pair for the current setting.
 ///
-/// Both halves run the identical script and differ only in whether the one
-/// stage is applied, so what changes between them is the filter and nothing
-/// else. Rendering the whole export pipeline for each would be slower and
-/// would mix in every other stage's effect, which is not the question the
-/// page is asking.
+/// Both halves carry every chosen filter and differ only in whether this
+/// page's one is applied, so what changes between them is the filter — judged
+/// on the picture the export will actually give it.
 ///
 /// When the setting is at "do nothing" there is nothing to compare, so one
 /// picture is shown rather than two identical ones side by side.
@@ -639,8 +630,7 @@ fn stage_pair(ui: &mut egui::Ui, app: &mut App, step: Step, current: usize) {
         return;
     }
 
-    let strength = current.to_string();
-    let (before_tag, after_tag) = app.request_stage_pair(stage, &strength);
+    let (before_tag, after_tag) = app.request_stage_pair(stage);
     let inner = COLUMN - 34.0;
     let gap = 12.0;
     let each = ((inner - gap) / 2.0).floor();
@@ -680,7 +670,7 @@ fn stage_pair(ui: &mut egui::Ui, app: &mut App, step: Step, current: usize) {
         // reader who has not asked for a comparison yet.
         if !is_no_op(step, current) {
             ui.add_space(8.0);
-            theme::paragraph(ui, RichText::new("Both halves are deinterlaced, so this is what the finished video will look like. That is why the first one takes a few seconds: the untouched half is the same picture on Levels, Color tint, Noise, Halos, Film grain and Smooth gradient fix — and on Film dirt, for a home movie — so it is rendered once and reused on all of them. Moving the Moment slider starts again at the new moment.")
+            theme::paragraph(ui, RichText::new("Both halves carry every filter you have chosen so far, in the order the export applies them. After is the finished video at this moment; Before is the same with only this page's setting left out. Changing a setting on another page changes these pictures too, the same as it changes the export. The After picture is shared by every page, so it is only made once per set of choices. Moving the Moment slider starts again at the new moment.")
                         .size(theme::FONT_TINY)
                         .color(theme::faint()),);
         }
@@ -743,6 +733,9 @@ fn pane(ui: &mut egui::Ui, app: &App, tag: &str, width: f32, caption: &str) -> O
                 if ui.is_rect_visible(rect) {
                     ui.painter()
                         .rect_filled(rect, theme::RADIUS_SMALL, theme::panel2());
+                    if let Some(wait) = app.preview_progress_for(tag) {
+                        waiting_overlay(ui, rect, &wait);
+                    }
                 }
                 ui.ctx().request_repaint();
             }
@@ -753,19 +746,61 @@ fn pane(ui: &mut egui::Ui, app: &App, tag: &str, width: f32, caption: &str) -> O
                 .size(theme::FONT_SMALL)
                 .color(theme::faint()),
         );
-        // How long this one has been going, and why.
-        //
-        // Reported from testing: a long tape leaves the panes gray for a
-        // while with nothing to say whether anything is happening. There is
-        // no frame count to show — one frame is being rendered — so this
-        // says what it is doing and for how long, which is the honest
-        // version of the progress bar that was asked for.
-        if let Some(line) = app.preview_progress_for(tag) {
-            ui.add_space(2.0);
-            theme::paragraph(ui, RichText::new(line).size(theme::FONT_TINY).color(theme::faint()),);
-        }
     });
     dragged
+}
+
+/// The wait, drawn on the empty picture: a headline, a moving bar, and a
+/// line saying why it takes as long as it does.
+fn waiting_overlay(ui: &egui::Ui, rect: egui::Rect, wait: &crate::PreviewWait) {
+    let painter = ui.painter_at(rect);
+    let pad = 16.0;
+    let inner = rect.shrink(pad);
+    let wrap = inner.width();
+
+    let headline = painter.layout(
+        wait.headline.clone(),
+        egui::FontId::proportional(theme::FONT_BODY),
+        if wait.running { theme::text() } else { theme::muted() },
+        wrap,
+    );
+    let detail = painter.layout(
+        wait.detail.clone(),
+        egui::FontId::proportional(theme::FONT_TINY),
+        theme::muted(),
+        wrap,
+    );
+    let bar_h = 6.0;
+    let gap = 10.0;
+    let total = headline.size().y + gap + bar_h + gap + detail.size().y;
+    let mut y = rect.center().y - total / 2.0;
+
+    painter.galley(egui::pos2(inner.left(), y), headline.clone(), theme::text());
+    y += headline.size().y + gap;
+
+    // The track, and a segment sliding along it while the work runs. A
+    // queued half shows the track alone.
+    let track = egui::Rect::from_min_size(
+        egui::pos2(inner.left(), y),
+        egui::vec2(inner.width(), bar_h),
+    );
+    painter.rect_filled(track, bar_h / 2.0, theme::line());
+    if wait.running {
+        let t = ui.input(|i| i.time) as f32;
+        let seg = track.width() * 0.3;
+        // Across and back, eased, about two seconds each way.
+        let phase = (t * 0.5).fract();
+        let u = 0.5 - 0.5 * (phase * std::f32::consts::TAU).cos();
+        let x = track.left() + (track.width() - seg) * u;
+        painter.rect_filled(
+            egui::Rect::from_min_size(egui::pos2(x, track.top()), egui::vec2(seg, bar_h)),
+            bar_h / 2.0,
+            theme::accent(),
+        );
+    }
+    y += bar_h + gap;
+
+    painter.galley(egui::pos2(inner.left(), y), detail, theme::muted());
 }
 
 /// The controls shared by every comparison: which moment, and how close.
