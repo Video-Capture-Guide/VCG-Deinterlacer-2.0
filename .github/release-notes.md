@@ -1,3 +1,52 @@
+## New in 2.0.9
+
+**Film dirt removal for 8 mm and Super 8 home movies.** A new Film dirt step
+in Full control takes off dust and specks that sit on one film frame and not
+the frames either side of it, with Light, Normal and Strong settings. It
+works on the rebuilt film frames, matches the brightness of flickering
+frames before comparing them, leaves thin detail and lines running across the
+picture (brick mortar, siding, rails) alone, and passes through any frame
+that would need more than 5% replaced. Marks that stay put from frame to
+frame, such as a scratch, are not touched. On a dusty reel, Normal repaired
+about 0.05% of each frame. It is off unless you choose it.
+
+**Silent film plays at its true speed by default.** For 16 and 18 fps film,
+the finished file now runs at the film's own speed, so movement looks
+natural; the file comes out slightly longer or shorter than the tape and
+any sound is stretched to match. The Check video page explains the choice,
+24 fps sound film keeps the tape's length, and a projector speed typed by
+hand that is far from the measured one is flagged. A loaded settings file no
+longer carries a hand-picked speed onto another tape.
+
+**Dehalo was working on the wrong pixels, and now removes halos.** Its mask
+pointed the repair at the edges and fine texture instead of the band beside
+them, softening texture and leaving the halo. On a Video8 tape, Strong now
+removes most of the white outline and leaves texture alone.
+
+**The halo check measures the halo.** It looked in the wrong place and counted
+leaves and twigs, so no dehalo setting ever changed its verdict. It now
+measures the bright rim just past an edge between two even areas: a Video8
+tape with obvious outlines reads Strong, MiniDV Moderate, and film, DVD and
+HD camcorder files clean.
+
+**Previews show every filter you have chosen.** Each settings page's After
+picture is now the finished video at that moment, with all your filters in
+the order the export applies them; Before is the same with only that page's
+setting left out.
+
+**Previews of large captures appear.** Every preview used to re-read the whole
+file before showing a frame, which on a large capture took longer than a
+preview is allowed, leaving the pages empty. The first preview of a video now
+reads it once and keeps an index; the ones after it take seconds. While a
+preview is being made, the picture says what it is doing, with a moving bar.
+
+**Export page.** Add to queue and Export now look like buttons, and adding to
+the queue takes you to the queue so you can see it has started.
+
+**Fixes.** An export with Film dirt on a cropped picture came out all black
+and reported success; both are fixed, and an export whose frames fail now
+stops and says so.
+
 ## New in 2.0.8
 
 **Exports of long captures could lose their sound, and now cannot.** Reading
