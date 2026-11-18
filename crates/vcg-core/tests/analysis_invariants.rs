@@ -595,12 +595,11 @@ fn a_nonsense_frame_rate_falls_back_to_25() {
 
 // ── Halo scan ───────────────────────────────────────────────────────────────
 
-/// Vertical step edges, optionally carrying the two-sided sharpening signature.
+/// Vertical step edges, optionally carrying a sharpening rim.
 ///
-/// The probe reads its near bands at offsets 4-7 either side of the edge and
-/// its plateaus at 11-14, so the overshoot and undershoot must sit at 4-7 —
-/// putting them adjacent to the edge lands them inside the gradient zone and
-/// the scan sees nothing.
+/// The rim is the one measured on real Video8 and MiniDV tapes: a bright band
+/// one to three pixels past a slightly soft edge, with no dip on the dark
+/// side. The probe finds the steepest point and reads 2-5 past it.
 fn edge_plane(with_halo: bool, period: usize) -> (Vec<u8>, usize, usize) {
     let (w, h) = (320usize, 240usize);
     let edge = period / 2;
@@ -609,20 +608,38 @@ fn edge_plane(with_halo: bool, period: usize) -> (Vec<u8>, usize, usize) {
         for x in 0..w {
             let phase = x % period;
             let mut v: i32 = if phase < edge { 60 } else { 190 };
-            if with_halo {
-                // Bright-side overshoot, 4-7 past the edge.
-                if (edge + 4..=edge + 7).contains(&phase) {
-                    v = 230;
-                }
-                // Dark-side undershoot, 4-7 before it.
-                if (edge - 7..=edge - 4).contains(&phase) {
-                    v = 20;
-                }
+            // A two-pixel ramp, as a captured edge has.
+            if phase == edge {
+                v = 125;
+            }
+            if with_halo && (edge + 2..=edge + 3).contains(&phase) {
+                v = 215;
             }
             data[y * w + x] = v as u8;
         }
     }
     (data, w, h)
+}
+
+/// Foliage: thin bright twigs on a mid-grey ground. Each twig rises and falls
+/// like a rim, but the levels either side of it are the same — there is no
+/// step for a halo to sit on, and dehalo leaves texture alone, so it must not
+/// vote. Before the step rule a leafy tape read as 19% haloed and no dehalo
+/// setting could move it.
+#[test]
+fn thin_bright_lines_on_an_even_ground_are_not_halos() {
+    let (w, h) = (320usize, 240usize);
+    let mut data = vec![90u8; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let phase = x % 40;
+            if (20..=22).contains(&phase) {
+                data[y * w + x] = 200;
+            }
+        }
+    }
+    let t = scan(&data, w, h);
+    assert_eq!(t.halo_edges, 0, "{t:?}");
 }
 
 fn scan(data: &[u8], w: usize, h: usize) -> EdgeTally {
