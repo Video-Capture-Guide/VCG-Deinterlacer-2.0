@@ -155,7 +155,8 @@ impl FilmDirt {
             Self::Off => None,
             Self::Light => Some(16),
             Self::Normal => Some(12),
-            Self::Strong => Some(8),
+            // 8 rewrote brick mortar on the oldest 8 mm reel as if it were dirt.
+            Self::Strong => Some(10),
         }
     }
 

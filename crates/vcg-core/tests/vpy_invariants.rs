@@ -1506,7 +1506,7 @@ fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
     for (strength, limit) in [
         (FilmDirt::Light, 16 * 256),
         (FilmDirt::Normal, 12 * 256),
-        (FilmDirt::Strong, 8 * 256),
+        (FilmDirt::Strong, 10 * 256),
     ] {
         let s = script(&Config { film_dirt: strength, ..film.clone() });
         assert!(
@@ -1538,6 +1538,17 @@ fn film_dirt_is_removed_from_the_film_frames_and_only_from_them() {
     assert!(
         pos(&s, "speck = core.std.Maximum(core.std.Minimum(speck))")
             < pos(&s, "speck = core.std.Convolution(core.std.Maximum(speck)"),
+        "{s}"
+    );
+    // Lines across the picture — at least 9 wide, at most 4 tall — are taken
+    // out of the mask too, before the share is counted: Strong rewrote brick
+    // mortar on the oldest reel without it.
+    assert!(s.contains("across = opened(speck, [0, 0, 0, 1, 1, 0, 0, 0], 4)"), "{s}");
+    assert!(s.contains("tall = opened(speck, [0, 1, 0, 0, 0, 0, 1, 0], 2)"), "{s}");
+    assert!(
+        pos(&s, "speck = core.std.Maximum(core.std.Minimum(speck))")
+            < pos(&s, "speck = core.std.Expr([speck, across, tall], \"y z > 0 x ?\")")
+            && pos(&s, "speck = core.std.Expr([speck, across, tall]") < pos(&s, "share = core.std.PlaneStats(speck)"),
         "{s}"
     );
     // And a frame that would need more than 5% replaced is left alone.
